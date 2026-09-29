@@ -41,7 +41,7 @@ function normId(e){return String(e?.user?.uniqueId||e?.user?.userId||normName(e)
 
 const cars=Array.from({length:10},(_,i)=>({
  slot:i,id:"bot-"+i,name:botNames[i],human:false,color:colors[i],progress:i*0.0025,speed:0.00145+Math.random()*.00025,
- boost:0,boostTimer:0,drift:0,flash:0,finished:false
+ boost:0,boostTimer:0,nitro:false,flash:0,finished:false
 }));
 const players=new Map();
 let phase="waiting", phaseStarted=performance.now(), raceStarted=0, last=performance.now(), lap=1, raceNo=1;
@@ -132,14 +132,8 @@ function applyChat(e){
  if(match){
    const slot=Math.max(0,Math.min(7,Number(match[1])-1));
    const c=joinPlayer(id,name,slot);
-   if(c){spawnEffect(...Object.values(pointAt(c.progress)).slice(0,2), "#fff", "ARACA KATILDI", "🏎️");}
-   return;
+   if(c)spawnEffect(...Object.values(pointAt(c.progress)).slice(0,2),"#fff","ARACA KATILDI","🏎️");
  }
- const c=findCar(id); if(!c)return;
- if(/\\b(start|başla|basla)\\b/.test(msg)&&phase==="waiting")startCountdown();
- if(/\\b(nitro|hızlan|hizlan)\\b/.test(msg))c.boost=Math.max(c.boost,.25);
- if(msg==="sol"||msg==="left")c.drift=-1;
- if(msg==="sağ"||msg==="sag"||msg==="right")c.drift=1;
 }
 function startCountdown(){if(phase!=="waiting")return;phase="countdown";phaseStarted=performance.now()}
 function startRace(){
@@ -170,7 +164,6 @@ function update(dt){
      c.progress += (ai*(1+activeBoost))*dt/16.666;
      c.boostTimer=Math.max(0,c.boostTimer-dt/1000);
      if(c.boostTimer<=0){c.boost=0;c.nitro=false;}
-     if(c.drift){c.drift*=.92}
      if(c.progress>=1){c.progress-=1;c.laps=(c.laps||0)+1}
      if((c.laps||0)>=3&&!c.finished){c.finished=true;c.finishOrder=++finishOrder;}
    });
@@ -213,7 +206,7 @@ function drawScenery(){
  }
 }
 function drawCar(c,rank){
- const p=pointAt(c.progress,(c.slotOffset||0)+c.drift*8);ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
+ const p=pointAt(c.progress,(c.slotOffset||0));ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
  ctx.shadowColor=c.color;ctx.shadowBlur=c.boostTimer>0?18:8;
  ctx.fillStyle="#080a0d";ctx.fillRect(-17,-9,34,18);
  ctx.fillStyle=c.color;ctx.beginPath();ctx.roundRect(-12,-8,24,16,5);ctx.fill();
