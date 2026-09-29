@@ -1,103 +1,27 @@
 <!doctype html>
-<html lang="tr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AGT Autonomous LIVE</title>
-  <link rel="stylesheet" href="/app.css">
-</head>
-<body>
-  <main class="shell">
-    <header>
-      <div>
-        <span class="eyebrow">AGT STUDIO</span>
-        <h1>Autonomous LIVE</h1>
-        <p>TikTok LIVE → Hediye → Oyun. Yayıncı oyunu bir kez açar.</p>
-      </div>
-      <div id="status" class="status">Hazır</div>
-    </header>
-
-    <section class="panel setup">
-      <label>TikTok kullanıcı adı
-        <input id="username" placeholder="kullaniciadi">
-      </label>
-      <div class="row">
-        <button id="demoBtn">Demo Başlat</button>
-        <button id="liveBtn" class="primary">LIVE Bağlan</button>
-      </div>
-      <small>İlk test için Demo ile başlayabiliriz. Gerçek testte hesap canlı olmalı.</small>
-    </section>
-
-    <section class="games">
-      <button class="game active" data-game="race"><b>🏎️ Race</b><span>Hediye → yarış</span></button>
-      <button class="game" data-game="tower"><b>⚔️ Tower</b><span>Takım savaşı</span></button>
-      <button class="game" data-game="territory"><b>🌍 Territory</b><span>Harita savaşı</span></button>
-      <button class="game" data-game="arena"><b>🏆 Arena</b><span>Top 3 bağışçı</span></button>
-    </section>
-
-    <section class="panel preview">
-      <iframe id="gameFrame" src="/games/race.html?mode=demo"></iframe>
-    </section>
-
-    <section class="panel demo">
-      <h2>Hızlı test</h2>
-      <div class="row">
-        <button data-gift="Rose" data-diamonds="1">🌹 Rose +1</button>
-        <button data-gift="GG" data-diamonds="5">✌️ GG +5</button>
-        <button data-gift="Crown" data-diamonds="20">👑 Crown +20</button>
-        <button data-gift="Galaxy" data-diamonds="100">🌌 Galaxy +100</button>
-      </div>
-    </section>
-  </main>
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io();
-const frame = document.getElementById('gameFrame');
-const status = document.getElementById('status');
-let selectedGame = 'race';
-let currentMode = 'demo';
-let currentUsername = 'demo';
-
-function loadGame() {
-  const query = new URLSearchParams({ mode: currentMode });
-  if (currentMode === 'live') query.set('username', currentUsername);
-  frame.src = '/games/' + selectedGame + '.html?' + query.toString();
-}
-document.querySelectorAll('.game').forEach(btn => btn.onclick = () => {
-  document.querySelectorAll('.game').forEach(x => x.classList.remove('active'));
-  btn.classList.add('active');
-  selectedGame = btn.dataset.game;
-  loadGame();
-});
-document.getElementById('demoBtn').onclick = () => {
-  currentMode = 'demo';
-  currentUsername = 'demo';
-  socket.emit('join-stream', { username: 'demo', mode: 'demo' });
-  loadGame();
-  status.textContent = 'DEMO bağlı';
-};
-document.getElementById('liveBtn').onclick = () => {
-  const username = document.getElementById('username').value.trim().replace(/^@/, '');
-  if (!username) return alert('TikTok kullanıcı adı gir.');
-  currentMode = 'live';
-  currentUsername = username;
-  socket.emit('join-stream', { username, mode: 'live' });
-  loadGame();
-  status.textContent = 'LIVE bağlanıyor...';
-};
-socket.on('stream-status', s => status.textContent = s.connected ? 'LIVE bağlı: @' + s.username : 'Bağlantı bekleniyor');
-socket.on('stream-error', e => { status.textContent = 'HATA'; alert(e.message); });
-
-document.querySelectorAll('[data-gift]').forEach(btn => btn.onclick = () => {
-  socket.emit('demo-event', {
-    type:'gift',
-    user:{uniqueId:'test_user',nickname:'Test User',profilePictureUrl:''},
-    giftName:btn.dataset.gift,
-    diamondCount:Number(btn.dataset.diamonds),
-    repeatCount:1,
-    repeatEnd:true
-  });
-});
-</script>
-</body>
-</html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AGT Autonomous LIVE</title><link rel="stylesheet" href="/app.css"></head>
+<body><main class="shell">
+<header class="topbar"><div class="brand"><div class="logo">🎮</div><div><div class="eyebrow">AGT STUDIO</div><h1>Autonomous LIVE</h1><p>Oyunu seç → LIVE’a bağlan → otomatik çalışsın.</p></div></div><div class="connection"><span id="dot" class="dot"></span><span id="status">Hazır</span></div></header>
+<div class="layout">
+<aside class="sidebar">
+<section class="panel setup"><div class="section-title">Yayın bağlantısı</div><label for="username">TikTok kullanıcı adı</label><input id="username" placeholder="@kullaniciadi" autocomplete="off"><div class="actions"><button id="demoBtn" class="btn">Demo</button><button id="liveBtn" class="btn primary">LIVE Bağla</button></div><button id="overlayBtn" class="btn ghost wide" disabled>Yayın ekranını aç</button><p class="hint">Bağlantı kurulduktan sonra seçili oyun aynı event akışını kullanır. Yayıncı oyuna sürekli dokunmak zorunda değildir.</p></section>
+<section class="panel"><div class="section-title">Oyun kütüphanesi</div><div id="gameList" class="game-list"></div></section>
+</aside>
+<section class="main"><div class="hero"><div><h2 id="gameTitle">🏎️ Street Race</h2><p id="gameDescription"></p></div><button id="refreshBtn" class="btn">↻ Yenile</button></div>
+<section class="panel preview"><div class="preview-head"><span id="selectedMeta" class="selected-meta">DEMO • Street Race</span><span class="selected-meta">Yayın ekranı</span></div><iframe id="gameFrame" title="Seçili oyun" src="/games/race.html?mode=demo"></iframe></section>
+<section class="panel quick"><div class="section-title">Demo hediyeleri</div><div class="row"><button data-gift="Rose" data-diamonds="1">🌹 Rose +1</button><button data-gift="GG" data-diamonds="5">✌️ GG +5</button><button data-gift="Crown" data-diamonds="20">👑 Crown +20</button><button data-gift="Galaxy" data-diamonds="100">🌌 Galaxy +100</button></div><div class="footer-note">Yerel test. Gerçek LIVE’da eventler TikTok bağlantısından gelir.</div></section>
+</section></div></main>
+<script src="/socket.io/socket.io.js"></script><script>
+const socket=io(),frame=document.getElementById("gameFrame"),statusEl=document.getElementById("status"),dot=document.getElementById("dot"),overlayBtn=document.getElementById("overlayBtn"),usernameInput=document.getElementById("username"),list=document.getElementById("gameList"),title=document.getElementById("gameTitle"),desc=document.getElementById("gameDescription"),meta=document.getElementById("selectedMeta");
+let games=[],selected=null,mode="demo",username="demo";
+function url(){if(!selected?.route)return "";const q=new URLSearchParams({mode});if(mode==="live")q.set("username",username);return selected.route+"?"+q}
+function load(){if(!selected?.route)return;frame.src=url();title.textContent=selected.icon+" "+selected.name;desc.textContent=selected.description;meta.textContent=(mode==="live"?"LIVE":"DEMO")+" • "+selected.name;overlayBtn.disabled=false}
+function render(){list.innerHTML="";games.forEach(g=>{const b=document.createElement("button");b.className="game"+(selected?.id===g.id?" active":"");b.disabled=g.status!=="ready";b.innerHTML=`<div class="game-top"><span class="game-icon">${g.icon}</span><span><span class="game-name">${g.name}</span><span class="game-sub">${g.tr}</span></span><span class="badge ${g.status==="planned"?"planned":""}">${g.status==="ready"?"HAZIR":"PLANDA"}</span></div>`;b.onclick=()=>{selected=g;render();load()};list.appendChild(b)})}
+async function boot(){const r=await fetch("/api/games");games=(await r.json()).games;selected=games.find(g=>g.id==="race")||games[0];render();load()}
+document.getElementById("demoBtn").onclick=()=>{mode="demo";username="demo";socket.emit("join-stream",{username:"demo",mode:"demo"});statusEl.textContent="DEMO bağlı";dot.classList.add("live");load()};
+document.getElementById("liveBtn").onclick=()=>{const u=usernameInput.value.trim().replace(/^@/,"");if(!u){statusEl.textContent="Kullanıcı adı gerekli";usernameInput.focus();return}if(!selected?.route){statusEl.textContent="Bu oyun henüz hazır değil";return}mode="live";username=u;socket.emit("join-stream",{username:u,mode:"live"});statusEl.textContent="LIVE bağlanıyor…";dot.classList.add("live");load()};
+overlayBtn.onclick=()=>selected?.route&&window.open(url(),"_blank","noopener,noreferrer");document.getElementById("refreshBtn").onclick=load;
+socket.on("stream-status",s=>{statusEl.textContent=s.connected?"LIVE bağlı: @"+s.username:(s.mode==="demo"?"DEMO bağlı":"Bağlantı bekleniyor");dot.classList.toggle("live",!!s.connected||s.mode==="demo")});
+socket.on("stream-error",e=>{statusEl.textContent="Bağlantı hatası";dot.classList.remove("live");alert(e.message)});
+document.querySelectorAll("[data-gift]").forEach(b=>b.onclick=()=>{if(mode!=="demo"){statusEl.textContent="Demo hediyesi için Demo moduna geç";return}socket.emit("demo-event",{type:"gift",user:{uniqueId:"test_user",nickname:"Test User",profilePictureUrl:""},giftName:b.dataset.gift,diamondCount:Number(b.dataset.diamonds),repeatCount:1,repeatEnd:true})});boot();
+</script></body></html>
