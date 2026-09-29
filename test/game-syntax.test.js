@@ -22,7 +22,7 @@ test("all game/server JavaScript files parse", () => {
   }
 });
 
-test("game catalog contains four ready games", async () => {
+test("game catalog contains six ready games", async () => {
   const { GAME_CATALOG } = await import("../src/games/catalog.js");
   assert.equal(GAME_CATALOG.filter((g) => g.status === "ready").length, 6);
   for (const game of GAME_CATALOG.filter((g) => g.status === "ready")) {
