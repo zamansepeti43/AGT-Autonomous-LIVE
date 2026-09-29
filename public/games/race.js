@@ -252,7 +252,7 @@ function addStrip(points,color){
 function addBarrier(p,normal,offset){
   const q=p.clone().addScaledVector(normal,offset);
   const b=new THREE.Mesh(new THREE.BoxGeometry(.28,.65,2.6),new THREE.MeshStandardMaterial({color:0xd5d9de,metalness:.65,roughness:.35}));
-  b.position.copy(q);b.position.y=.38;b.rotation.y=Math.atan2(trackCurve.getTangentAt(.5).x,trackCurve.getTangentAt(.5).z);
+  b.position.copy(q);b.position.y=.38;b.rotation.y=Math.atan2(normal.z,-normal.x);
   b.castShadow=true;trackGroup.add(b);
 }
 
