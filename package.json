@@ -1,0 +1,18 @@
+{
+  "name": "agt-autonomous-live",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AGT Autonomous LIVE - event-driven TikTok LIVE interactive games",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1",
+    "tiktok-live-events": "1.2.4"
+  }
+}
