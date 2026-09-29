@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AGT Autonomous LIVE</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <span class="eyebrow">AGT STUDIO</span>
+        <h1>Autonomous LIVE</h1>
+        <p>TikTok LIVE → Hediye → Oyun. Yayıncı oyunu bir kez açar.</p>
+      </div>
+      <div id="status" class="status">Hazır</div>
+    </header>
+
+    <section class="panel setup">
+      <label>TikTok kullanıcı adı
+        <input id="username" placeholder="kullaniciadi">
+      </label>
+      <div class="row">
+        <button id="demoBtn">Demo Başlat</button>
+        <button id="liveBtn" class="primary">LIVE Bağlan</button>
+      </div>
+      <small>İlk test için Demo ile başlayabiliriz. Gerçek testte hesap canlı olmalı.</small>
+    </section>
+
+    <section class="games">
+      <button class="game active" data-game="race"><b>🏎️ Race</b><span>Hediye → yarış</span></button>
+      <button class="game" data-game="tower"><b>⚔️ Tower</b><span>Takım savaşı</span></button>
+      <button class="game" data-game="territory"><b>🌍 Territory</b><span>Harita savaşı</span></button>
+      <button class="game" data-game="arena"><b>🏆 Arena</b><span>Top 3 bağışçı</span></button>
+    </section>
+
+    <section class="panel preview">
+      <iframe id="gameFrame" src="/games/race.html?mode=demo"></iframe>
+    </section>
+
+    <section class="panel demo">
+      <h2>Hızlı test</h2>
+      <div class="row">
+        <button data-gift="Rose" data-diamonds="1">🌹 Rose +1</button>
+        <button data-gift="GG" data-diamonds="5">✌️ GG +5</button>
+        <button data-gift="Crown" data-diamonds="20">👑 Crown +20</button>
+        <button data-gift="Galaxy" data-diamonds="100">🌌 Galaxy +100</button>
+      </div>
+    </section>
+  </main>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const frame = document.getElementById('gameFrame');
+const status = document.getElementById('status');
+let selectedGame = 'race';
+
+function loadGame() {
+  const mode = location.search.includes('live') ? 'live' : 'demo';
+  frame.src = '/games/' + selectedGame + '.html?mode=' + mode;
+}
+document.querySelectorAll('.game').forEach(btn => btn.onclick = () => {
+  document.querySelectorAll('.game').forEach(x => x.classList.remove('active'));
+  btn.classList.add('active');
+  selectedGame = btn.dataset.game;
+  loadGame();
+});
+document.getElementById('demoBtn').onclick = () => {
+  socket.emit('join-stream', { username: 'demo', mode: 'demo' });
+  status.textContent = 'DEMO bağlı';
+};
+document.getElementById('liveBtn').onclick = () => {
+  const username = document.getElementById('username').value.trim();
+  if (!username) return alert('TikTok kullanıcı adı gir.');
+  socket.emit('join-stream', { username, mode: 'live' });
+};
+socket.on('stream-status', s => status.textContent = s.connected ? 'LIVE bağlı: @' + s.username : 'Bağlantı bekleniyor');
+socket.on('stream-error', e => { status.textContent = 'HATA'; alert(e.message); });
+
+document.querySelectorAll('[data-gift]').forEach(btn => btn.onclick = () => {
+  socket.emit('demo-event', {
+    type:'gift',
+    user:{uniqueId:'test_user',nickname:'Test User',profilePictureUrl:''},
+    giftName:btn.dataset.gift,
+    diamondCount:Number(btn.dataset.diamonds),
+    repeatCount:1,
+    repeatEnd:true
+  });
+});
+</script>
+</body>
+</html>
