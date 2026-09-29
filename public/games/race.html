@@ -1,99 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AGT Street Race — Top Down LIVE</title>
-    <link rel="stylesheet" href="/games/race.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>AGT Race — TikTok LIVE Top Down</title>
+<link rel="stylesheet" href="/games/race.css">
 </head>
 <body>
-    <div class="game-container">
-        <header class="game-header">
-            <h1>🏎️ AGT STREET RACE</h1>
-            <div class="game-stats">
-                <div class="stat">
-                    <span class="label">Speed:</span>
-                    <span id="speed-display">0</span>
-                    <span class="unit">km/h</span>
-                </div>
-                <div class="stat">
-                    <span class="label">Tur:</span>
-                    <span id="lap-display">1</span>
-                    <span class="unit">/ 3</span>
-                </div>
-                <div class="stat">
-                    <span class="label">Süre:</span>
-                    <span id="time-display">00:00</span>
-                </div>
-                <div class="stat">
-                    <span class="label">En İyi:</span>
-                    <span id="best-time">--:--</span>
-                </div>
-            </div>
-        </header>
+<div class="stream">
+  <section class="gift-zone top-zone">
+    <div class="gift-title"><span>🎁</span><b>TIKTOK HEDİYELERİ</b><em>YARIŞ ETKİLERİ</em></div>
+    <div class="gift-grid" id="giftTop"></div>
+  </section>
 
-        <div class="game-area">
-            <canvas id="gameCanvas" width="1000" height="600"></canvas>
-            
-            <div class="game-controls">
-                <div class="control-info">
-                    <h3>🎮 Kontroller</h3>
-                    <div class="controls-grid">
-                        <div class="control">
-                            <span class="key">↑ / W</span>
-                            <span>Gaz</span>
-                        </div>
-                        <div class="control">
-                            <span class="key">↓ / S</span>
-                            <span>Fren</span>
-                        </div>
-                        <div class="control">
-                            <span class="key">← / A</span>
-                            <span>Sol</span>
-                        </div>
-                        <div class="control">
-                            <span class="key">→ / D</span>
-                            <span>Sağ</span>
-                        </div>
-                        <div class="control">
-                            <span class="key">SPACE</span>
-                            <span>Yeniden Başlat</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="car-selection">
-                    <h3>🚗 Araç Seç</h3>
-                    <div class="car-options">
-                        <button class="car-btn active" data-car="0">Sport Car</button>
-                        <button class="car-btn" data-car="1">Race Car</button>
-                        <button class="car-btn" data-car="2">Classic Car</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="game-overlay" id="gameOverlay">
-            <div class="overlay-content">
-                <h2 id="overlayTitle">Race Complete! 🏁</h2>
-                <p id="overlayMessage">Great job!</p>
-                <div class="overlay-stats">
-                    <div class="stat-item">
-                        <span class="stat-label">Final Time:</span>
-                        <span id="finalTime">00:00</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Average Speed:</span>
-                        <span id="avgSpeed">0 km/h</span>
-                    </div>
-                </div>
-                <button id="restartBtn" class="restart-btn">🏎️ Race Again</button>
-            </div>
-        </div>
+  <section class="race-zone">
+    <canvas id="raceCanvas" width="1080" height="720"></canvas>
+    <div class="race-overlay">
+      <div class="leaderboard glass">
+        <div class="panel-head"><b>SIRALAMA</b><span id="lapText">TUR 1/3</span></div>
+        <div id="leaderRows"></div>
+      </div>
+      <div class="race-state" id="raceState">KATILIM BEKLENİYOR</div>
+      <div class="timer glass">
+        <small>TUR SÜRESİ</small><strong id="raceTimer">00:00.000</strong>
+        <span id="phaseText">Oyuncular bekleniyor</span>
+      </div>
+      <div class="mini-map glass"><canvas id="miniCanvas" width="180" height="120"></canvas></div>
+      <div class="speed glass"><strong id="speedText">0</strong><span>km/h</span><b id="boostText">BOOST 0%</b></div>
     </div>
+  </section>
+
+  <section class="gift-zone bottom-zone">
+    <div class="join-card">
+      <span class="join-icon">🍵</span>
+      <div><b>ÇAY = OYUNA KATIL</b><small>Çay hediyesini gönder → boş bir yarışçı koltuğu al</small></div>
+    </div>
+    <div class="gift-grid" id="giftBottom"></div>
+  </section>
+</div>
 <script src="/socket.io/socket.io.js"></script>
-<script>window.AGT_RACE_CONFIG={mode:new URLSearchParams(location.search).get("mode")||"solo"};</script>
+<script>
+window.AGT_RACE_CONFIG = {
+  mode: new URLSearchParams(location.search).get("mode") || "demo",
+  username: new URLSearchParams(location.search).get("username") || ""
+};
+</script>
 <script src="/games/race.js"></script>
 </body>
 </html>
