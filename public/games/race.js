@@ -1,517 +1,243 @@
-console.log('🏁 AGT Street Race engine loaded');
+(() => {
+const $=s=>document.querySelector(s);
+const canvas=$("#raceCanvas"),ctx=canvas.getContext("2d");
+const mini=$("#miniCanvas"),mctx=mini.getContext("2d");
+const W=canvas.width,H=canvas.height;
+const socket=window.io?window.io():null;
+const cfg=window.AGT_RACE_CONFIG||{mode:"demo"};
 
-class Game {
-    constructor() {
-        console.log('🚗 Initializing Speed Racer Game...');
-        this.canvas = document.getElementById('gameCanvas');
-        console.log('📱 Canvas element:', this.canvas);
-        
-        if (!this.canvas) {
-            console.error('❌ Canvas element not found!');
-            return;
-        }
-        
-        this.ctx = this.canvas.getContext('2d');
-        console.log('🎨 Canvas context:', this.ctx);
-        
-        if (!this.ctx) {
-            console.error('❌ Could not get 2D context!');
-            return;
-        }
-        
-        console.log('🏁 Canvas dimensions:', this.canvas.width, 'x', this.canvas.height);
-        
-        // Game objects
-        this.track = new Track(this.canvas.width, this.canvas.height);
-        console.log('🛣️ Track created');
-        this.car = null;
-        
-        // Game state
-        this.gameState = 'playing'; // playing, paused, finished
-        this.currentLap = 1;
-        this.totalLaps = 3;
-        this.agtMode = window.AGT_RACE_CONFIG?.mode || 'solo';
-        this.startTime = Date.now();
-        this.lapTimes = [];
-        this.bestTime = localStorage.getItem('bestTime') || null;
-        
-        // Controls
-        this.controls = {
-            up: false,
-            down: false,
-            left: false,
-            right: false
-        };
-        
-        // Performance tracking
-        this.lastFrameTime = 0;
-        this.frameCount = 0;
-        this.fps = 60;
-        
-        // Sound simulation flags
-        this.audioContext = null;
-        this.engineSound = null;
-        
-        // Initialize game
-        this.init();
-    }
-    
-    init() {
-        console.log('🎮 Initializing game components...');
-        this.setupCar();
-        console.log('🚗 Car setup complete');
-        this.setupEventListeners();
-        console.log('⌨️ Event listeners setup complete');
-        this.setupAudio();
-        this.setupAgtLiveBridge();
-        console.log('🔊 Audio setup complete');
-        this.gameLoop();
-        console.log('🔄 Game loop started');
-        this.updateUI();
-        console.log('✅ Game initialization complete!');
-    }
-    
-    setupCar() {
-        const startPos = this.track.getStartPosition();
-        this.car = new Car(startPos.x, startPos.y, startPos.angle, 0);
-    }
-    
-    setupEventListeners() {
-        // Keyboard controls
-        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
-        document.addEventListener('keyup', (e) => this.handleKeyUp(e));
-        
-        // Car selection
-        document.querySelectorAll('.car-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.selectCar(e));
-        });
-        
-        // Restart button
-        document.getElementById('restartBtn').addEventListener('click', () => this.restart());
-        
-        // Prevent context menu on right click
-        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-        
-        // Handle window blur/focus for pause functionality
-        window.addEventListener('blur', () => this.pause());
-        window.addEventListener('focus', () => this.resume());
-    }
-    
-    setupAgtLiveBridge() {
-        if (!window.io) return;
-        this.agtSocket = window.io();
-        this.agtSocket.on('live:event', (event) => {
-            if (!event) return;
-            if (event.type === 'gift') {
-                const diamonds = Math.max(1, Number(event.diamondCount || 1) * Number(event.repeatCount || 1));
-                this.car.velocity = Math.min(this.car.maxSpeed, this.car.velocity + Math.min(2.5, 0.35 + Math.sqrt(diamonds) * 0.16));
-                this.showAgtToast('🎁 ' + (event.giftName || 'Hediye') + ' · BOOST');
-            }
-        });
-        this.agtSocket.on('live:chat', (event) => {
-            const cmd = String(event?.comment || '').trim().toLowerCase();
-            if (!cmd) return;
-            if (/^(sol|left|l)$/.test(cmd)) this.controls.left = true;
-            if (/^(sağ|sag|right|r)$/.test(cmd)) this.controls.right = true;
-            if (/^(gaz|go|ileri|up)$/.test(cmd)) this.controls.up = true;
-            if (/^(fren|brake|down)$/.test(cmd)) this.controls.down = true;
-            if (/^(start|başla|basla)$/.test(cmd)) this.restart();
-            setTimeout(() => { this.controls.left = false; this.controls.right = false; this.controls.up = false; this.controls.down = false; }, 450);
-        });
-    }
+const GIFT_UI=[
+ {icon:"🍵",name:"ÇAY",effect:"OYUNA KATIL",key:"join",accent:"#ffd166"},
+ {icon:"🌹",name:"GÜL",effect:"+%20 HIZ",key:"rose",accent:"#ff477e"},
+ {icon:"🎵",name:"TIKTOK",effect:"NİTRO",key:"tiktok",accent:"#25d9ff"},
+ {icon:"❤️",name:"KALP",effect:"MİNİ BOOST",key:"heart",accent:"#ff4d73"},
+ {icon:"🫰",name:"PARMAK KALP",effect:"SOL DÖNÜŞ",key:"left",accent:"#c86bff"},
+ {icon:"👑",name:"TAÇ",effect:"SAĞ DÖNÜŞ",key:"right",accent:"#ffd166"},
+ {icon:"🦁",name:"ASLAN",effect:"BÜYÜK BOOST",key:"lion",accent:"#ff9d2e"},
+ {icon:"🌌",name:"GALAKSİ",effect:"ÖZEL GÜÇ",key:"galaxy",accent:"#7d8cff"}
+];
 
-    showAgtToast(text) {
-        let el = document.getElementById('agtLiveToast');
-        if (!el) {
-            el = document.createElement('div'); el.id = 'agtLiveToast';
-            el.style.cssText = 'position:fixed;right:24px;top:90px;z-index:1200;padding:12px 16px;border:1px solid rgba(255,107,0,.55);border-radius:12px;background:rgba(8,10,16,.9);color:#fff;font:700 13px Orbitron,system-ui;box-shadow:0 12px 35px rgba(0,0,0,.45);transition:opacity .25s';
-            document.body.appendChild(el);
-        }
-        el.textContent = text; el.style.opacity = '1';
-        clearTimeout(this.agtToastTimer); this.agtToastTimer = setTimeout(() => el.style.opacity = '0', 900);
-    }
+function giftCard(g){
+ return '<div class="gift" style="--accent:'+g.accent+';--glow:'+g.accent+'"><div class="icon">'+g.icon+'</div><b>'+g.name+'</b><small>'+g.effect+'</small></div>';
+}
+$("#giftTop").innerHTML=GIFT_UI.slice(0,4).map(giftCard).join("");
+$("#giftBottom").innerHTML=GIFT_UI.slice(4).map(giftCard).join("");
 
-    setupAudio() {
-        // Setup Web Audio API for engine sounds (basic implementation)
-        try {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        } catch (e) {
-            console.log('Web Audio API not supported');
-        }
-    }
-    
-    handleKeyDown(e) {
-        switch(e.code) {
-            case 'ArrowUp':
-            case 'KeyW':
-                this.controls.up = true;
-                e.preventDefault();
-                break;
-            case 'ArrowDown':
-            case 'KeyS':
-                this.controls.down = true;
-                e.preventDefault();
-                break;
-            case 'ArrowLeft':
-            case 'KeyA':
-                this.controls.left = true;
-                e.preventDefault();
-                break;
-            case 'ArrowRight':
-            case 'KeyD':
-                this.controls.right = true;
-                e.preventDefault();
-                break;
-            case 'Space':
-                this.restart();
-                e.preventDefault();
-                break;
-            case 'KeyP':
-                this.togglePause();
-                e.preventDefault();
-                break;
-        }
-    }
-    
-    handleKeyUp(e) {
-        switch(e.code) {
-            case 'ArrowUp':
-            case 'KeyW':
-                this.controls.up = false;
-                break;
-            case 'ArrowDown':
-            case 'KeyS':
-                this.controls.down = false;
-                break;
-            case 'ArrowLeft':
-            case 'KeyA':
-                this.controls.left = false;
-                break;
-            case 'ArrowRight':
-            case 'KeyD':
-                this.controls.right = false;
-                break;
-        }
-    }
-    
-    selectCar(e) {
-        const carType = parseInt(e.target.dataset.car);
-        
-        // Update UI
-        document.querySelectorAll('.car-btn').forEach(btn => btn.classList.remove('active'));
-        e.target.classList.add('active');
-        
-        // Update car
-        this.car.setCarType(carType);
-        this.restart();
-    }
-    
-    update() {
-        if (this.gameState !== 'playing') return;
-        
-        // Update car
-        this.car.update(this.controls);
-        
-        // Check collisions
-        this.car.checkCollision(this.track.boundaries);
-        
-        // Check lap progress
-        const lapProgress = this.track.checkLapProgress(this.car);
-        
-        if (lapProgress.lapCompleted) {
-            this.completeLap();
-        }
-        
-        // Update UI
-        this.updateUI();
-        
-        // Play engine sound based on car speed
-        this.updateAudio();
-    }
-    
-    completeLap() {
-        const currentTime = Date.now();
-        const lapTime = currentTime - this.startTime;
-        this.lapTimes.push(lapTime);
-        
-        this.currentLap++;
-        
-        if (this.currentLap > this.totalLaps) {
-            this.finishRace();
-        } else {
-            // Reset timer for next lap
-            this.startTime = currentTime;
-            
-            // Show lap completion feedback
-            this.showLapFeedback(lapTime);
-        }
-    }
-    
-    finishRace() {
-        this.gameState = 'finished';
-        
-        const totalTime = this.lapTimes.reduce((sum, time) => sum + time, 0);
-        const avgSpeed = this.calculateAverageSpeed();
-        
-        // Check for best time
-        if (!this.bestTime || totalTime < parseInt(this.bestTime)) {
-            this.bestTime = totalTime;
-            localStorage.setItem('bestTime', this.bestTime.toString());
-            this.showRaceCompleteOverlay(totalTime, avgSpeed, true);
-        } else {
-            this.showRaceCompleteOverlay(totalTime, avgSpeed, false);
-        }
-    }
-    
-    showLapFeedback(lapTime) {
-        // Create a temporary lap notification
-        const notification = document.createElement('div');
-        notification.className = 'lap-notification';
-        notification.textContent = `Lap ${this.currentLap - 1} Complete! Time: ${this.formatTime(lapTime)}`;
-        notification.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: linear-gradient(145deg, #ff6b00, #ff8500);
-            color: white;
-            padding: 20px 40px;
-            border-radius: 10px;
-            font-family: 'Orbitron', monospace;
-            font-weight: bold;
-            font-size: 1.2rem;
-            z-index: 1001;
-            box-shadow: 0 0 30px rgba(255, 107, 0, 0.7);
-            animation: lapNotification 2s ease-out forwards;
-        `;
-        
-        // Add animation keyframes if not already added
-        if (!document.querySelector('#lap-animation-style')) {
-            const style = document.createElement('style');
-            style.id = 'lap-animation-style';
-            style.textContent = `
-                @keyframes lapNotification {
-                    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-                    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-                    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-        
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.remove();
-        }, 2000);
-    }
-    
-    showRaceCompleteOverlay(totalTime, avgSpeed, isNewRecord) {
-        const overlay = document.getElementById('gameOverlay');
-        const title = document.getElementById('overlayTitle');
-        const message = document.getElementById('overlayMessage');
-        const finalTime = document.getElementById('finalTime');
-        const avgSpeedDisplay = document.getElementById('avgSpeed');
-        
-        title.textContent = isNewRecord ? 'NEW RECORD! 🏆' : 'Race Complete! 🏁';
-        message.textContent = isNewRecord ? 
-            'Congratulations! You set a new best time!' : 
-            'Great job! Keep practicing to beat your best time!';
-        
-        finalTime.textContent = this.formatTime(totalTime);
-        avgSpeedDisplay.textContent = `${Math.round(avgSpeed)} km/h`;
-        
-        overlay.classList.add('show');
-    }
-    
-    calculateAverageSpeed() {
-        // Estimate based on track length and total time
-        const estimatedTrackLength = 2.5; // km (estimated)
-        const totalTimeSeconds = this.lapTimes.reduce((sum, time) => sum + time, 0) / 1000;
-        const totalDistance = estimatedTrackLength * this.totalLaps;
-        return (totalDistance / totalTimeSeconds) * 3600; // km/h
-    }
-    
-    updateAudio() {
-        if (!this.audioContext) return;
-        
-        // Simple engine sound simulation based on car speed
-        const enginePitch = this.car.enginePitch;
-        
-        // This would typically involve more complex audio synthesis
-        // For now, we'll just track the engine state for potential future implementation
-        if (enginePitch > 0.1 && !this.engineSound) {
-            // Engine starting sound
-        } else if (enginePitch < 0.1 && this.engineSound) {
-            // Engine stopping sound
-        }
-    }
-    
-    pause() {
-        this.gameState = 'paused';
-    }
-    
-    resume() {
-        if (this.gameState === 'paused') {
-            this.gameState = 'playing';
-            // Adjust start time to account for pause
-            this.startTime = Date.now() - (Date.now() - this.startTime);
-        }
-    }
-    
-    togglePause() {
-        if (this.gameState === 'playing') {
-            this.pause();
-        } else if (this.gameState === 'paused') {
-            this.resume();
-        }
-    }
-    
-    restart() {
-        // Hide overlay
-        document.getElementById('gameOverlay').classList.remove('show');
-        
-        // Reset game state
-        this.gameState = 'playing';
-        this.currentLap = 1;
-        this.startTime = Date.now();
-        this.lapTimes = [];
-        
-        // Reset car
-        const startPos = this.track.getStartPosition();
-        this.car.reset(startPos.x, startPos.y, startPos.angle);
-        
-        // Reset track checkpoints
-        this.track.resetCheckpoints();
-        
-        // Update UI
-        this.updateUI();
-    }
-    
-    updateUI() {
-        // Update speed display
-        document.getElementById('speed-display').textContent = this.car.getSpeedKmh();
-        
-        // Update lap display
-        document.getElementById('lap-display').textContent = Math.min(this.currentLap, this.totalLaps);
-        
-        // Update time display
-        const currentTime = Date.now() - this.startTime;
-        document.getElementById('time-display').textContent = this.formatTime(currentTime);
-        
-        // Update best time display
-        if (this.bestTime) {
-            document.getElementById('best-time').textContent = this.formatTime(parseInt(this.bestTime));
-        }
-    }
-    
-    formatTime(milliseconds) {
-        const seconds = Math.floor(milliseconds / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        const ms = Math.floor((milliseconds % 1000) / 10);
-        
-        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
-    }
-    
-    draw() {
-        try {
-            // Clear canvas
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            
-            // Draw track
-            this.track.draw(this.ctx);
-            
-            // Draw car
-            this.car.draw(this.ctx);
-            
-            // Draw game state info
-            this.drawGameInfo();
-            
-            // Draw pause overlay if paused
-            if (this.gameState === 'paused') {
-                this.drawPauseOverlay();
-            }
-        } catch (error) {
-            console.error('❌ Error in draw function:', error);
-        }
-    }
-    
-    drawGameInfo() {
-        this.ctx.save();
-        
-        // Performance info (FPS)
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        this.ctx.font = '12px Orbitron';
-        this.ctx.fillText(`FPS: ${this.fps}`, this.canvas.width - 60, 20);
-        
-        // Lap progress indicators
-        this.ctx.fillStyle = '#ff6b00';
-        this.ctx.font = 'bold 14px Orbitron';
-        this.ctx.fillText('Checkpoints:', 10, this.canvas.height - 40);
-        
-        const checkpointStatus = this.track.checkpoints.map(cp => cp.passed ? '✓' : '○').join(' ');
-        this.ctx.fillStyle = '#00ff88';
-        this.ctx.fillText(checkpointStatus, 10, this.canvas.height - 20);
-        
-        this.ctx.restore();
-    }
-    
-    drawPauseOverlay() {
-        this.ctx.save();
-        
-        // Semi-transparent overlay
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Pause text
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = 'bold 36px Orbitron';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('PAUSED', this.canvas.width / 2, this.canvas.height / 2);
-        
-        this.ctx.font = '16px Orbitron';
-        this.ctx.fillText('Press P to resume', this.canvas.width / 2, this.canvas.height / 2 + 40);
-        
-        this.ctx.restore();
-    }
-    
-    gameLoop() {
-        const currentTime = performance.now();
-        
-        // Calculate FPS
-        if (currentTime - this.lastFrameTime >= 1000) {
-            this.fps = this.frameCount;
-            this.frameCount = 0;
-            this.lastFrameTime = currentTime;
-        }
-        this.frameCount++;
-        
-        // Update and draw
-        this.update();
-        this.draw();
-        
-        // Continue game loop
-        requestAnimationFrame(() => this.gameLoop());
-    }
+const colors=["#ff315c","#2ea8ff","#ffd23f","#32df89","#b56bff","#ff7b35","#00e5d4","#ff4fd8","#8dff3f","#ff9f1c"];
+const botNames=["MertBot","ElifBot","KeremBot","DenizBot","AyşeBot","CanBot","EceBot","ArdaBot","MiraBot","AliBot"];
+const path=[];
+for(let i=0;i<64;i++){
+ const a=(Math.PI*2*i)/64, x=540+390*Math.cos(a), y=360+255*Math.sin(a);
+ path.push({x,y});
+}
+function pointAt(t, lane=0){
+ const n=path.length, f=((t%1)+1)%1*n, i=Math.floor(f), q=f-i, a=path[i],b=path[(i+1)%n];
+ const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1;
+ const nx=-dy/len,ny=dx/len;
+ return {x:a.x+(b.x-a.x)*q+nx*lane,y:a.y+(b.y-a.y)*q+ny*lane,angle:Math.atan2(dy,dx)};
+}
+function normName(e){return String(e?.user?.nickname||e?.user?.uniqueId||"Oyuncu").slice(0,13)}
+function normId(e){return String(e?.user?.uniqueId||e?.user?.userId||normName(e)).toLowerCase()}
+
+const cars=Array.from({length:10},(_,i)=>({
+ slot:i,id:"bot-"+i,name:botNames[i],human:false,color:colors[i],progress:i*0.0025,speed:0.00145+Math.random()*.00025,
+ boost:0,boostTimer:0,drift:0,flash:0,finished:false
+}));
+const players=new Map();
+let phase="waiting", phaseStarted=performance.now(), raceStarted=0, last=performance.now(), lap=1, raceNo=1;
+let effects=[], winner=null, joinOpen=true;
+
+function findCar(id){return cars.find(c=>c.id===id)}
+function joinPlayer(id,name,forcedSlot){
+ let existing=findCar(id); if(existing){existing.name=name;existing.human=true;return existing}
+ let idx=typeof forcedSlot==="number"&&cars[forcedSlot]&&!cars[forcedSlot].human?forcedSlot:cars.findIndex(c=>!c.human);
+ if(idx<0) idx=cars.findIndex(c=>c.id.startsWith("bot-"));
+ if(idx<0)return null;
+ const c=cars[idx];c.id=id;c.name=name;c.human=true;c.color=colors[idx];c.progress=0;c.speed=.00135;c.boost=0;c.finished=false;players.set(id,c);
+ return c;
+}
+function removeHumansForReset(){
+ for(let i=0;i<cars.length;i++){cars[i].id="bot-"+i;cars[i].name=botNames[i];cars[i].human=false;cars[i].progress=i*.0025;cars[i].speed=.00145+Math.random()*.00025;cars[i].boost=0;cars[i].finished=false}
+ players.clear();
+}
+function spawnEffect(x,y,color,text,icon){
+ effects.push({x,y,color,text,icon,t:0,max:1.3,vy:-30});
 }
 
-// AGT Autonomous LIVE initializes the game after all local engine scripts are loaded.
-console.log('🏎️ AGT Street Race class loaded!');
-console.log('Controls: WASD or Arrow Keys');
-console.log('Press SPACE to restart, P to pause');
-console.log('Complete 3 laps as fast as possible!');
+const effectsMap={
+ join:{label:"OYUNA KATILDI",color:"#ffd166",icon:"🍵"},
+ rose:{label:"+%20 HIZ",color:"#ff477e",icon:"🌹"},
+ tiktok:{label:"NİTRO!",color:"#25d9ff",icon:"🎵"},
+ heart:{label:"MİNİ BOOST",color:"#ff4d73",icon:"❤️"},
+ left:{label:"SOL DÖNÜŞ",color:"#c86bff",icon:"🫰"},
+ right:{label:"SAĞ DÖNÜŞ",color:"#ffd166",icon:"👑"},
+ lion:{label:"BÜYÜK BOOST",color:"#ff9d2e",icon:"🦁"},
+ galaxy:{label:"ÖZEL GÜÇ",color:"#7d8cff",icon:"🌌"}
+};
 
-console.log('✅ Game class loaded successfully!'); 
-window.addEventListener('load', () => { if (window.__agtRace) console.log('AGT solo race ready'); });
+function classifyGift(name,diamonds){
+ const s=String(name||"").toLowerCase();
+ if(/çay|cay|tea/.test(s))return"join";
+ if(/rose|gül|gul|rosa/.test(s))return"rose";
+ if(/tiktok/.test(s))return"tiktok";
+ if(/heart|kalp/.test(s)&&!/finger/.test(s))return"heart";
+ if(/finger|parmak/.test(s))return"left";
+ if(/crown|taç|tac|little crown/.test(s))return"right";
+ if(/lion|aslan/.test(s))return"lion";
+ if(/galaxy|galaksi|interstellar|universe/.test(s))return"galaxy";
+ if(diamonds>=1000)return"galaxy";
+ if(diamonds>=299)return"lion";
+ if(diamonds>=99)return"right";
+ if(diamonds>=5)return"heart";
+ return"rose";
+}
+function applyGift(e){
+ const id=normId(e), name=normName(e), diamonds=Math.max(1,Number(e?.diamondCount||0)*Number(e?.repeatCount||1));
+ let c=findCar(id);
+ const key=classifyGift(e?.giftName,diamonds);
+ if(key==="join"&&!c)c=joinPlayer(id,name);
+ if(!c&&phase!=="finished")c=joinPlayer(id,name);
+ if(!c)return;
+ if(key==="rose")c.boost=Math.max(c.boost,.20); 
+ if(key==="tiktok")c.boost=Math.max(c.boost,.55);
+ if(key==="heart")c.boost=Math.max(c.boost,.10);
+ if(key==="left")c.drift=-1;
+ if(key==="right")c.drift=1;
+ if(key==="lion")c.boost=Math.max(c.boost,1.0);
+ if(key==="galaxy"){c.boost=Math.max(c.boost,.75);c.speed+=.00035}
+ c.boostTimer=key==="lion"?4.5:key==="tiktok"?2.8:1.7;
+ const p=pointAt(c.progress,(c.slotOffset||0));
+ spawnEffect(p.x,p.y,effectsMap[key].color,effectsMap[key].label,effectsMap[key].icon);
+}
+function applyChat(e){
+ const id=normId(e), name=normName(e), msg=String(e?.comment||"").trim().toLowerCase();
+ const match=msg.match(/^!(?:araba)?\\s*([1-8])$/);
+ if(match){
+   const slot=Math.max(0,Math.min(7,Number(match[1])-1));
+   const c=joinPlayer(id,name,slot);
+   if(c){spawnEffect(...Object.values(pointAt(c.progress)).slice(0,2), "#fff", "ARACA KATILDI", "🏎️");}
+   return;
+ }
+ const c=findCar(id); if(!c)return;
+ if(/\\b(start|başla|basla)\\b/.test(msg)&&phase==="waiting")startCountdown();
+ if(/\\b(nitro|hızlan|hizlan)\\b/.test(msg))c.boost=Math.max(c.boost,.25);
+ if(msg==="sol"||msg==="left")c.drift=-1;
+ if(msg==="sağ"||msg==="sag"||msg==="right")c.drift=1;
+}
+function startCountdown(){if(phase!=="waiting")return;phase="countdown";phaseStarted=performance.now()}
+function startRace(){
+ phase="racing";phaseStarted=performance.now();raceStarted=performance.now();lap=1;winner=null;
+ cars.forEach((c,i)=>{c.progress=i*.0025;c.finished=false;c.boost=0;c.boostTimer=0;c.speed=.00135+Math.random()*.00035});
+}
+function finishRace(){
+ phase="finished";phaseStarted=performance.now();
+ const ranked=[...cars].sort((a,b)=>b.progress-a.progress);winner=ranked[0];
+ spawnEffect(...Object.values(pointAt(winner.progress)).slice(0,2),"#ffd166","KAZANAN: "+winner.name,"🏆");
+}
+function resetRace(){raceNo++;phase="waiting";phaseStarted=performance.now();removeHumansForReset();joinOpen=true}
 
-window.addEventListener('DOMContentLoaded', () => {
-    try {
-        const game = new Game();
-        window.__agtRace = game;
-        console.log('✅ AGT top-down solo race ready');
-    } catch (error) {
-        console.error('❌ AGT race initialization failed:', error);
-    }
-});
+function update(dt){
+ if(phase==="waiting" && performance.now()-phaseStarted>11000){startCountdown()}
+ if(phase==="countdown" && performance.now()-phaseStarted>3200)startRace();
+ if(phase==="racing"){
+   const elapsed=(performance.now()-raceStarted)/1000;
+   cars.forEach((c,i)=>{
+     const ai=c.speed;
+     const boost=c.boostTimer>0?c.boost:0;
+     c.progress += (ai*(1+boost))*dt/16.666;
+     c.boostTimer=Math.max(0,c.boostTimer-dt/1000);
+     if(c.drift){c.drift*=.92}
+     if(c.progress>=1){c.progress-=1;c.laps=(c.laps||0)+1}
+     if((c.laps||0)>=3)c.finished=true;
+   });
+   const done=cars.filter(c=>c.finished).sort((a,b)=>b.progress-a.progress);
+   if(done.length||elapsed>75)finishRace();
+ }
+ if(phase==="finished"&&performance.now()-phaseStarted>6500)resetRace();
+ effects.forEach(e=>{e.t+=dt/1000;e.y+=e.vy*dt/1000;e.vy*=.97});effects=effects.filter(e=>e.t<e.max);
+}
+
+function drawBackground(){
+ ctx.fillStyle="#0b1513";ctx.fillRect(0,0,W,H);
+ for(let i=0;i<40;i++){ctx.fillStyle=i%2?"#12251b":"#102019";ctx.beginPath();ctx.arc((i*137)%W,(i*71)%H,28+(i%5)*9,0,Math.PI*2);ctx.fill()}
+ ctx.fillStyle="#06344b";ctx.beginPath();ctx.ellipse(540,360,500,340,0,0,Math.PI*2);ctx.fill();
+}
+function drawTrack(){
+ ctx.save();
+ ctx.translate(0,0);
+ ctx.lineCap="round";ctx.lineJoin="round";
+ ctx.beginPath();path.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();
+ ctx.strokeStyle="#151a20";ctx.lineWidth=170;ctx.stroke();
+ ctx.strokeStyle="#d9dce0";ctx.lineWidth=132;ctx.stroke();
+ ctx.strokeStyle="#252a30";ctx.lineWidth=118;ctx.stroke();
+ ctx.setLineDash([18,18]);ctx.strokeStyle="#737b83";ctx.lineWidth=3;ctx.stroke();ctx.setLineDash([]);
+ ctx.strokeStyle="#e9e9e9";ctx.lineWidth=6;ctx.setLineDash([14,10]);ctx.stroke();ctx.setLineDash([]);
+ // curbs
+ ctx.beginPath();path.forEach((p,i)=>{const q=pointAt(i/path.length,.0);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.closePath();ctx.strokeStyle="#f4f4f4";ctx.lineWidth=124;ctx.stroke();
+ ctx.strokeStyle="#ef304e";ctx.lineWidth=124;ctx.setLineDash([18,18]);ctx.stroke();ctx.setLineDash([]);
+ // redraw asphalt over inner curb
+ ctx.beginPath();path.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.strokeStyle="#292d32";ctx.lineWidth=112;ctx.stroke();
+ // start finish
+ const a=pointAt(0);ctx.save();ctx.translate(a.x,a.y);ctx.rotate(a.angle);
+ for(let i=-5;i<6;i++){ctx.fillStyle=i%2?"#fff":"#111";ctx.fillRect(i*18,-54,18,18);ctx.fillStyle=i%2?"#111":"#fff";ctx.fillRect(i*18,-36,18,18);ctx.fillStyle=i%2?"#111":"#fff";ctx.fillRect(i*18,-18,18,18)}
+ ctx.restore();
+ ctx.restore();
+}
+function drawScenery(){
+ for(let i=0;i<18;i++){const p=path[(i*3+1)%path.length];const side=i%2?-1:1;const q=pointAt(((i*3+1)%path.length)/path.length,side*100);
+   ctx.fillStyle="#0d2b1a";ctx.beginPath();ctx.arc(q.x,q.y,14,0,Math.PI*2);ctx.fill();ctx.fillStyle="#1b6a3d";ctx.beginPath();ctx.arc(q.x,q.y-10,18,0,Math.PI*2);ctx.fill();
+ }
+}
+function drawCar(c,rank){
+ const p=pointAt(c.progress,(c.slotOffset||0)+c.drift*8);ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
+ ctx.shadowColor=c.color;ctx.shadowBlur=c.boostTimer>0?18:8;
+ ctx.fillStyle="#080a0d";ctx.fillRect(-17,-9,34,18);
+ ctx.fillStyle=c.color;ctx.beginPath();ctx.roundRect(-12,-8,24,16,5);ctx.fill();
+ ctx.fillStyle="#dff8ff";ctx.fillRect(-3,-6,8,12);ctx.fillStyle="#10141a";ctx.fillRect(6,-6,5,12);
+ if(c.boostTimer>0){ctx.fillStyle=c.color;ctx.globalAlpha=.55;ctx.beginPath();ctx.moveTo(-15,0);ctx.lineTo(-40,-5);ctx.lineTo(-40,5);ctx.closePath();ctx.fill()}
+ ctx.restore();
+ // nameplate
+ ctx.font="bold 10px Arial";ctx.textAlign="center";const label=c.human?c.name:"AI "+(rank+1);
+ const w=ctx.measureText(label).width+22;ctx.fillStyle="rgba(3,6,11,.86)";ctx.beginPath();ctx.roundRect(p.x-w/2,p.y-30,w,17,8);ctx.fill();
+ ctx.fillStyle=c.color;ctx.fillText(label,p.x,p.y-18);
+ if(c.human){ctx.fillStyle="#ffd166";ctx.font="bold 8px Arial";ctx.fillText("#"+(rank+1),p.x,p.y-34)}
+}
+function drawHUD(){
+ ctx.fillStyle="rgba(4,8,14,.7)";ctx.fillRect(0,0,W,42);
+ ctx.fillStyle="#fff";ctx.font="900 18px Arial";ctx.fillText("AGT RACE",20,27);
+ ctx.fillStyle="#6ee7ff";ctx.font="bold 11px Arial";ctx.fillText("TIKTOK LIVE • TOP DOWN",126,26);
+ ctx.fillStyle="#fff";ctx.font="bold 12px Arial";ctx.textAlign="right";ctx.fillText("TUR "+Math.min(3,1+(cars[0].laps||0))+"/3",W-20,24);ctx.textAlign="left";
+ if(phase==="countdown"){const n=Math.max(1,3-Math.floor((performance.now()-phaseStarted)/1000));ctx.fillStyle="rgba(0,0,0,.5)";ctx.fillRect(W/2-90,H/2-80,180,120);ctx.fillStyle="#ff2b83";ctx.font="900 64px Arial";ctx.textAlign="center";ctx.fillText(n,W/2,H/2+20);ctx.textAlign="left"}
+ if(phase==="finished"){ctx.fillStyle="rgba(0,0,0,.65)";ctx.fillRect(280,260,520,180);ctx.fillStyle="#ffd166";ctx.font="900 32px Arial";ctx.textAlign="center";ctx.fillText("🏆 "+(winner?.name||"YARIŞ BİTTİ"),540,330);ctx.fillStyle="#fff";ctx.font="bold 15px Arial";ctx.fillText("Yeni yarış hazırlanıyor…",540,365);ctx.textAlign="left"}
+}
+function render(){
+ drawBackground();drawScenery();drawTrack();
+ const ranked=[...cars].sort((a,b)=>b.progress-a.progress);ranked.forEach((c,i)=>drawCar(c,i));
+ drawHUD();
+ // effects
+ effects.forEach(e=>{ctx.save();ctx.globalAlpha=1-e.t/e.max;ctx.fillStyle=e.color;ctx.font="900 14px Arial";ctx.textAlign="center";ctx.shadowColor=e.color;ctx.shadowBlur=12;ctx.fillText(e.icon+" "+e.text,e.x,e.y);ctx.restore()});
+ // minimap
+ mctx.clearRect(0,0,180,120);mctx.fillStyle="#071018";mctx.fillRect(0,0,180,120);mctx.beginPath();
+ path.forEach((p,i)=>{const x=90+(p.x-540)*.19,y=60+(p.y-360)*.19;i?mctx.lineTo(x,y):mctx.moveTo(x,y)});mctx.closePath();mctx.strokeStyle="#40505f";mctx.lineWidth=10;mctx.stroke();mctx.strokeStyle="#dcefff";mctx.lineWidth=2;mctx.stroke();
+ cars.forEach(c=>{const p=pointAt(c.progress);mctx.fillStyle=c.color;mctx.beginPath();mctx.arc(90+(p.x-540)*.19,60+(p.y-360)*.19,3,0,Math.PI*2);mctx.fill()});
+}
+function updateUI(){
+ const ranked=[...cars].sort((a,b)=>b.progress-a.progress);
+ $("#leaderRows").innerHTML=ranked.slice(0,6).map((c,i)=>'<div class="leader-row"><span class="pos" style="color:'+c.color+'">'+(i+1)+'</span><span class="name">'+(c.human?"👤 ":"")+c.name+'</span><span class="gap">'+(i===0?"LIDER":"+"+(i*.41).toFixed(2))+'</span></div>').join("");
+ $("#lapText").textContent="TUR "+Math.min(3,1+(cars[0].laps||0))+"/3";
+ const sec=phase==="racing"?(performance.now()-raceStarted)/1000:0;
+ $("#raceTimer").textContent=(Math.floor(sec/60)).toString().padStart(2,"0")+":"+((sec%60).toFixed(3)).padStart(6,"0");
+ $("#phaseText").textContent=phase==="waiting"?"🍵 ÇAY GÖNDER VEYA !1-!8 YAZ":phase==="countdown"?"🏁 HAZIRLAN":"🎁 HEDİYELERLE ARABANI GÜÇLENDİR";
+ $("#raceState").textContent=phase==="waiting"?"KATILIM AÇIK":phase==="countdown"?"YARIŞ BAŞLIYOR":"CANLI YARIŞ";
+ const human=cars.find(c=>c.human);const speed=human?Math.round(150+human.boost*95):0;$("#speedText").textContent=speed;$("#boostText").textContent="BOOST "+Math.round((human?.boost||0)*100)+"%";
+}
+function loop(now){const dt=Math.min(40,now-last);last=now;update(dt);render();updateUI();requestAnimationFrame(loop)}
+if(socket){
+ socket.on("live:event",e=>{if(e?.type==="gift")applyGift(e);else if(e?.type==="like"){const c=findCar(normId(e));if(c)c.boost=Math.max(c.boost,.06)}});
+ socket.on("live:chat",applyChat);
+ socket.on("live:connected",()=>{});
+}
+setTimeout(()=>{if(cfg.mode!=="live" && phase==="waiting"){joinPlayer("demo-red","Mert",0);joinPlayer("demo-blue","Elif",1);joinPlayer("demo-yellow","Kerem",2);startCountdown()}},1200);
+window.addEventListener("keydown",e=>{if(e.key==="1")applyChat({user:{uniqueId:"keyboard",nickname:"Testçi"},comment:"!1"});if(e.key==="2")applyChat({user:{uniqueId:"keyboard",nickname:"Testçi"},comment:"!2"});if(e.key==="3")applyChat({user:{uniqueId:"keyboard",nickname:"Testçi"},comment:"!3"});if(e.key==="g")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"Rose",diamondCount:1});if(e.key==="t")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"TikTok",diamondCount:1});if(e.key==="c")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"Tea",diamondCount:50})});
+requestAnimationFrame(loop);
+})();
