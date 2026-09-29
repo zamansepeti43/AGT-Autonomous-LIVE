@@ -497,11 +497,21 @@ class Game {
     }
 }
 
-// Game class is now initialized by the enhanced loader in index.html
-console.log('🏎️ Speed Racer Game class loaded!');
+// AGT Autonomous LIVE initializes the game after all local engine scripts are loaded.
+console.log('🏎️ AGT Street Race class loaded!');
 console.log('Controls: WASD or Arrow Keys');
 console.log('Press SPACE to restart, P to pause');
 console.log('Complete 3 laps as fast as possible!');
 
 console.log('✅ Game class loaded successfully!'); 
 window.addEventListener('load', () => { if (window.__agtRace) console.log('AGT solo race ready'); });
+
+window.addEventListener('DOMContentLoaded', () => {
+    try {
+        const game = new Game();
+        window.__agtRace = game;
+        console.log('✅ AGT top-down solo race ready');
+    } catch (error) {
+        console.error('❌ AGT race initialization failed:', error);
+    }
+});
