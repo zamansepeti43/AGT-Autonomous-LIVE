@@ -1,1 +1,34 @@
-<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AGT Street Race</title><link rel="stylesheet" href="/games/race.css"></head><body><canvas id="game"></canvas><div class="hud"><div class="brand"><span>AGT</span> STREET RACE</div><div id="phase">LOBBY</div><div id="timer">--</div></div><div id="feed"></div><div id="winner" class="hidden"><div class="win-card"><div class="trophy">🏆</div><div id="winTitle"></div><small id="winSub"></small></div></div><script src="/socket.io/socket.io.js"></script><script src="/games/race.js"></script></body></html>
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AGT Street Race 3D</title>
+  <link rel="stylesheet" href="/games/race.css">
+</head>
+<body>
+  <div id="game"></div>
+  <div class="hud">
+    <div class="brand"><span>AGT</span> STREET RACE <b>3D</b></div>
+    <div id="phase">LOBBY</div>
+    <div id="timer">--</div>
+  </div>
+  <div class="race-info">
+    <div><span>1</span><strong id="p1">PATRON</strong><i id="s1">0 km/h</i></div>
+    <div><span>2</span><strong id="p2">RIVAL 1</strong><i id="s2">0 km/h</i></div>
+    <div><span>3</span><strong id="p3">RIVAL 2</strong><i id="s3">0 km/h</i></div>
+    <div><span>4</span><strong id="p4">RIVAL 3</strong><i id="s4">0 km/h</i></div>
+    <div><span>5</span><strong id="p5">RIVAL 4</strong><i id="s5">0 km/h</i></div>
+  </div>
+  <div id="feed"></div>
+  <div id="winner" class="hidden">
+    <div class="win-card">
+      <div class="trophy">🏆</div>
+      <div id="winTitle"></div>
+      <small id="winSub"></small>
+    </div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/games/race.js"></script>
+</body>
+</html>
