@@ -11,10 +11,10 @@ const GIFT_UI=[
  {icon:"🌹",name:"GÜL",effect:"+%20 HIZ",key:"rose",accent:"#ff477e"},
  {icon:"🎵",name:"TIKTOK",effect:"NİTRO",key:"tiktok",accent:"#25d9ff"},
  {icon:"❤️",name:"KALP",effect:"MİNİ BOOST",key:"heart",accent:"#ff4d73"},
- {icon:"🫰",name:"PARMAK KALP",effect:"SOL DÖNÜŞ",key:"left",accent:"#c86bff"},
- {icon:"👑",name:"TAÇ",effect:"SAĞ DÖNÜŞ",key:"right",accent:"#ffd166"},
+ {icon:"🫰",name:"PARMAK KALP",effect:"+%15 HIZ",key:"finger",accent:"#c86bff"},
+ {icon:"👑",name:"TAÇ",effect:"+%40 HIZ",key:"crown",accent:"#ffd166"},
  {icon:"🦁",name:"ASLAN",effect:"BÜYÜK BOOST",key:"lion",accent:"#ff9d2e"},
- {icon:"🌌",name:"GALAKSİ",effect:"ÖZEL GÜÇ",key:"galaxy",accent:"#7d8cff"}
+ {icon:"🌌",name:"GALAKSİ",effect:"SÜPER NİTRO",key:"galaxy",accent:"#7d8cff"}
 ];
 
 function giftCard(g){
@@ -45,7 +45,7 @@ const cars=Array.from({length:10},(_,i)=>({
 }));
 const players=new Map();
 let phase="waiting", phaseStarted=performance.now(), raceStarted=0, last=performance.now(), lap=1, raceNo=1;
-let effects=[], winner=null, joinOpen=true;
+let effects=[], winner=null, joinOpen=true, finishOrder=0;
 
 function findCar(id){return cars.find(c=>c.id===id)}
 function joinPlayer(id,name,forcedSlot){
@@ -57,7 +57,12 @@ function joinPlayer(id,name,forcedSlot){
  return c;
 }
 function removeHumansForReset(){
- for(let i=0;i<cars.length;i++){cars[i].id="bot-"+i;cars[i].name=botNames[i];cars[i].human=false;cars[i].progress=i*.0025;cars[i].speed=.00145+Math.random()*.00025;cars[i].boost=0;cars[i].finished=false}
+ for(let i=0;i<cars.length;i++){
+   cars[i].id="bot-"+i;cars[i].name=botNames[i];cars[i].human=false;
+   cars[i].progress=i*.0025;cars[i].speed=.00145+Math.random()*.00025;
+   cars[i].boost=0;cars[i].boostTimer=0;cars[i].nitro=false;cars[i].laps=0;
+   cars[i].finished=false;cars[i].finishOrder=0;
+ }
  players.clear();
 }
 function spawnEffect(x,y,color,text,icon){
@@ -65,14 +70,14 @@ function spawnEffect(x,y,color,text,icon){
 }
 
 const effectsMap={
- join:{label:"OYUNA KATILDI",color:"#ffd166",icon:"🍵"},
- rose:{label:"+%20 HIZ",color:"#ff477e",icon:"🌹"},
- tiktok:{label:"NİTRO!",color:"#25d9ff",icon:"🎵"},
- heart:{label:"MİNİ BOOST",color:"#ff4d73",icon:"❤️"},
- left:{label:"SOL DÖNÜŞ",color:"#c86bff",icon:"🫰"},
- right:{label:"SAĞ DÖNÜŞ",color:"#ffd166",icon:"👑"},
- lion:{label:"BÜYÜK BOOST",color:"#ff9d2e",icon:"🦁"},
- galaxy:{label:"ÖZEL GÜÇ",color:"#7d8cff",icon:"🌌"}
+ join:{label:"OYUNA KATILDI",color:"#ffd166",icon:"🍵",boost:0,duration:0},
+ rose:{label:"+%20 HIZ",color:"#ff477e",icon:"🌹",boost:.20,duration:2.4},
+ tiktok:{label:"NİTRO!",color:"#25d9ff",icon:"🎵",boost:.75,duration:3.0,nitro:true},
+ heart:{label:"MİNİ BOOST",color:"#ff4d73",icon:"❤️",boost:.10,duration:1.8},
+ finger:{label:"+%15 HIZ",color:"#c86bff",icon:"🫰",boost:.15,duration:2.2},
+ crown:{label:"+%40 HIZ",color:"#ffd166",icon:"👑",boost:.40,duration:3.2},
+ lion:{label:"BÜYÜK BOOST",color:"#ff9d2e",icon:"🦁",boost:1.25,duration:4.5,nitro:true},
+ galaxy:{label:"SÜPER NİTRO",color:"#7d8cff",icon:"🌌",boost:2.25,duration:5.5,nitro:true}
 };
 
 function classifyGift(name,diamonds){
@@ -80,34 +85,46 @@ function classifyGift(name,diamonds){
  if(/çay|cay|tea/.test(s))return"join";
  if(/rose|gül|gul|rosa/.test(s))return"rose";
  if(/tiktok/.test(s))return"tiktok";
- if(/heart|kalp/.test(s)&&!/finger/.test(s))return"heart";
- if(/finger|parmak/.test(s))return"left";
- if(/crown|taç|tac|little crown/.test(s))return"right";
+ if(/finger|parmak/.test(s))return"finger";
+ if(/heart|kalp/.test(s))return"heart";
+ if(/crown|taç|tac|little crown/.test(s))return"crown";
  if(/lion|aslan/.test(s))return"lion";
  if(/galaxy|galaksi|interstellar|universe/.test(s))return"galaxy";
  if(diamonds>=1000)return"galaxy";
  if(diamonds>=299)return"lion";
- if(diamonds>=99)return"right";
- if(diamonds>=5)return"heart";
+ if(diamonds>=99)return"crown";
+ if(diamonds>=5)return"finger";
  return"rose";
 }
 function applyGift(e){
- const id=normId(e), name=normName(e), diamonds=Math.max(1,Number(e?.diamondCount||0)*Number(e?.repeatCount||1));
- let c=findCar(id);
+ const id=normId(e), name=normName(e);
+ const diamonds=Math.max(1,Number(e?.diamondCount||0)*Number(e?.repeatCount||1));
  const key=classifyGift(e?.giftName,diamonds);
- if(key==="join"&&!c)c=joinPlayer(id,name);
- if(!c&&phase!=="finished")c=joinPlayer(id,name);
- if(!c)return;
- if(key==="rose")c.boost=Math.max(c.boost,.20); 
- if(key==="tiktok")c.boost=Math.max(c.boost,.55);
- if(key==="heart")c.boost=Math.max(c.boost,.10);
- if(key==="left")c.drift=-1;
- if(key==="right")c.drift=1;
- if(key==="lion")c.boost=Math.max(c.boost,1.0);
- if(key==="galaxy"){c.boost=Math.max(c.boost,.75);c.speed+=.00035}
- c.boostTimer=key==="lion"?4.5:key==="tiktok"?2.8:1.7;
+ let c=findCar(id);
+
+ // Çay, izleyiciyi yarışa sokan tek doğrudan katılım hediyesidir.
+ if(key==="join"){
+   if(!c)c=joinPlayer(id,name);
+   if(c){
+     c.name=name;c.human=true;
+     spawnEffect(...Object.values(pointAt(c.progress)).slice(0,2),"#ffd166","OYUNA KATILDI","🍵");
+   }
+   return;
+ }
+
+ // Yarışçı değilse güç hediyesi boşa gitmez: izleyiciye önce Çay ile katılması gerektiğini bildirir.
+ if(!c){
+   spawnEffect(540,360,"#ffd166","ÖNCE ÇAY GÖNDER • OYUNA KATIL","🍵");
+   return;
+ }
+
+ const fx=effectsMap[key]||effectsMap.rose;
+ c.boost=Math.min(3.5,c.boost+fx.boost);
+ c.boostTimer=Math.max(c.boostTimer,fx.duration);
+ c.nitro=Boolean(fx.nitro);
+ c.name=name;
  const p=pointAt(c.progress,(c.slotOffset||0));
- spawnEffect(p.x,p.y,effectsMap[key].color,effectsMap[key].label,effectsMap[key].icon);
+ spawnEffect(p.x,p.y,fx.color,fx.label,fx.icon);
 }
 function applyChat(e){
  const id=normId(e), name=normName(e), msg=String(e?.comment||"").trim().toLowerCase();
@@ -126,12 +143,18 @@ function applyChat(e){
 }
 function startCountdown(){if(phase!=="waiting")return;phase="countdown";phaseStarted=performance.now()}
 function startRace(){
- phase="racing";phaseStarted=performance.now();raceStarted=performance.now();lap=1;winner=null;
- cars.forEach((c,i)=>{c.progress=i*.0025;c.finished=false;c.boost=0;c.boostTimer=0;c.speed=.00135+Math.random()*.00035});
+ phase="racing";phaseStarted=performance.now();raceStarted=performance.now();lap=1;winner=null;finishOrder=0;
+ cars.forEach((c,i)=>{c.progress=i*.0025;c.finished=false;c.finishOrder=0;c.laps=0;c.boost=0;c.boostTimer=0;c.nitro=false;c.speed=.00135+Math.random()*.00035});
 }
 function finishRace(){
  phase="finished";phaseStarted=performance.now();
- const ranked=[...cars].sort((a,b)=>b.progress-a.progress);winner=ranked[0];
+ const ranked=[...cars].sort((a,b)=>{
+   if(a.finishOrder&&b.finishOrder)return a.finishOrder-b.finishOrder;
+   if(a.finishOrder)return -1;
+   if(b.finishOrder)return 1;
+   return b.progress-a.progress;
+ });
+ winner=ranked[0];
  spawnEffect(...Object.values(pointAt(winner.progress)).slice(0,2),"#ffd166","KAZANAN: "+winner.name,"🏆");
 }
 function resetRace(){raceNo++;phase="waiting";phaseStarted=performance.now();removeHumansForReset();joinOpen=true}
@@ -143,12 +166,13 @@ function update(dt){
    const elapsed=(performance.now()-raceStarted)/1000;
    cars.forEach((c,i)=>{
      const ai=c.speed;
-     const boost=c.boostTimer>0?c.boost:0;
-     c.progress += (ai*(1+boost))*dt/16.666;
+     const activeBoost=c.boostTimer>0?c.boost:0;
+     c.progress += (ai*(1+activeBoost))*dt/16.666;
      c.boostTimer=Math.max(0,c.boostTimer-dt/1000);
+     if(c.boostTimer<=0){c.boost=0;c.nitro=false;}
      if(c.drift){c.drift*=.92}
      if(c.progress>=1){c.progress-=1;c.laps=(c.laps||0)+1}
-     if((c.laps||0)>=3)c.finished=true;
+     if((c.laps||0)>=3&&!c.finished){c.finished=true;c.finishOrder=++finishOrder;}
    });
    const done=cars.filter(c=>c.finished).sort((a,b)=>b.progress-a.progress);
    if(done.length||elapsed>75)finishRace();
@@ -194,7 +218,11 @@ function drawCar(c,rank){
  ctx.fillStyle="#080a0d";ctx.fillRect(-17,-9,34,18);
  ctx.fillStyle=c.color;ctx.beginPath();ctx.roundRect(-12,-8,24,16,5);ctx.fill();
  ctx.fillStyle="#dff8ff";ctx.fillRect(-3,-6,8,12);ctx.fillStyle="#10141a";ctx.fillRect(6,-6,5,12);
- if(c.boostTimer>0){ctx.fillStyle=c.color;ctx.globalAlpha=.55;ctx.beginPath();ctx.moveTo(-15,0);ctx.lineTo(-40,-5);ctx.lineTo(-40,5);ctx.closePath();ctx.fill()}
+ if(c.boostTimer>0){
+   ctx.fillStyle=c.color;ctx.globalAlpha=.55;ctx.beginPath();
+   ctx.moveTo(-15,0);ctx.lineTo(c.nitro?-58:-40,-5);ctx.lineTo(c.nitro?-58:-40,5);ctx.closePath();ctx.fill();
+   if(c.nitro){ctx.globalAlpha=.28;ctx.beginPath();ctx.arc(-42,0,14+Math.random()*5,0,Math.PI*2);ctx.fill()}
+ }
  ctx.restore();
  // nameplate
  ctx.font="bold 10px Arial";ctx.textAlign="center";const label=c.human?c.name:"AI "+(rank+1);
@@ -227,7 +255,7 @@ function updateUI(){
  $("#lapText").textContent="TUR "+Math.min(3,1+(cars[0].laps||0))+"/3";
  const sec=phase==="racing"?(performance.now()-raceStarted)/1000:0;
  $("#raceTimer").textContent=(Math.floor(sec/60)).toString().padStart(2,"0")+":"+((sec%60).toFixed(3)).padStart(6,"0");
- $("#phaseText").textContent=phase==="waiting"?"🍵 ÇAY GÖNDER VEYA !1-!8 YAZ":phase==="countdown"?"🏁 HAZIRLAN":"🎁 HEDİYELERLE ARABANI GÜÇLENDİR";
+ $("#phaseText").textContent=phase==="waiting"?"🍵 ÇAY GÖNDER • YARIŞA KATIL":phase==="countdown"?"🏁 HAZIRLAN":"🎁 HEDİYELERLE ARABANI HIZLANDIR";
  $("#raceState").textContent=phase==="waiting"?"KATILIM AÇIK":phase==="countdown"?"YARIŞ BAŞLIYOR":"CANLI YARIŞ";
  const human=cars.find(c=>c.human);const speed=human?Math.round(150+human.boost*95):0;$("#speedText").textContent=speed;$("#boostText").textContent="BOOST "+Math.round((human?.boost||0)*100)+"%";
 }
@@ -238,6 +266,6 @@ if(socket){
  socket.on("live:connected",()=>{});
 }
 setTimeout(()=>{if(cfg.mode!=="live" && phase==="waiting"){joinPlayer("demo-red","Mert",0);joinPlayer("demo-blue","Elif",1);joinPlayer("demo-yellow","Kerem",2);startCountdown()}},1200);
-window.addEventListener("keydown",e=>{if(e.key==="1")applyChat({user:{uniqueId:"keyboard",nickname:"Testçi"},comment:"!1"});if(e.key==="2")applyChat({user:{uniqueId:"keyboard",nickname:"Testçi"},comment:"!2"});if(e.key==="3")applyChat({user:{uniqueId:"keyboard",nickname:"Testçi"},comment:"!3"});if(e.key==="g")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"Rose",diamondCount:1});if(e.key==="t")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"TikTok",diamondCount:1});if(e.key==="c")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"Tea",diamondCount:50})});
+window.addEventListener("keydown",e=>{if(e.key==="1")applyChat({user:{uniqueId:"keyboard",nickname:"Testçi"},comment:"!1"});if(e.key==="2")applyChat({user:{uniqueId:"keyboard",nickname:"Testçi"},comment:"!2"});if(e.key==="3")applyChat({user:{uniqueId:"keyboard",nickname:"Testçi"},comment:"!3"});if(e.key==="g")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"Rose",diamondCount:1});if(e.key==="t")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"TikTok",diamondCount:1});if(e.key==="f")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"Finger Heart",diamondCount:5});if(e.key==="c")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"Tea",diamondCount:1});if(e.key==="l")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"Little Crown",diamondCount:99});if(e.key==="n")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"Lion",diamondCount:29999});if(e.key==="y")applyGift({user:{uniqueId:"keyboard",nickname:"Testçi"},giftName:"Galaxy",diamondCount:1000})});
 requestAnimationFrame(loop);
 })();
