@@ -55,10 +55,13 @@ const socket = io();
 const frame = document.getElementById('gameFrame');
 const status = document.getElementById('status');
 let selectedGame = 'race';
+let currentMode = 'demo';
+let currentUsername = 'demo';
 
 function loadGame() {
-  const mode = location.search.includes('live') ? 'live' : 'demo';
-  frame.src = '/games/' + selectedGame + '.html?mode=' + mode;
+  const query = new URLSearchParams({ mode: currentMode });
+  if (currentMode === 'live') query.set('username', currentUsername);
+  frame.src = '/games/' + selectedGame + '.html?' + query.toString();
 }
 document.querySelectorAll('.game').forEach(btn => btn.onclick = () => {
   document.querySelectorAll('.game').forEach(x => x.classList.remove('active'));
@@ -67,13 +70,20 @@ document.querySelectorAll('.game').forEach(btn => btn.onclick = () => {
   loadGame();
 });
 document.getElementById('demoBtn').onclick = () => {
+  currentMode = 'demo';
+  currentUsername = 'demo';
   socket.emit('join-stream', { username: 'demo', mode: 'demo' });
+  loadGame();
   status.textContent = 'DEMO bağlı';
 };
 document.getElementById('liveBtn').onclick = () => {
-  const username = document.getElementById('username').value.trim();
+  const username = document.getElementById('username').value.trim().replace(/^@/, '');
   if (!username) return alert('TikTok kullanıcı adı gir.');
+  currentMode = 'live';
+  currentUsername = username;
   socket.emit('join-stream', { username, mode: 'live' });
+  loadGame();
+  status.textContent = 'LIVE bağlanıyor...';
 };
 socket.on('stream-status', s => status.textContent = s.connected ? 'LIVE bağlı: @' + s.username : 'Bağlantı bekleniyor');
 socket.on('stream-error', e => { status.textContent = 'HATA'; alert(e.message); });
