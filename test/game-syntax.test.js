@@ -10,7 +10,9 @@ const files = [
   "public/games/race.js",
   "public/games/tower.js",
   "public/games/territory.js",
-  "public/games/arena.js"
+  "public/games/arena.js",
+  "public/games/climb.js",
+  "public/games/boss.js"
 ];
 
 test("all game/server JavaScript files parse", () => {
@@ -22,7 +24,7 @@ test("all game/server JavaScript files parse", () => {
 
 test("game catalog contains four ready games", async () => {
   const { GAME_CATALOG } = await import("../src/games/catalog.js");
-  assert.equal(GAME_CATALOG.filter((g) => g.status === "ready").length, 4);
+  assert.equal(GAME_CATALOG.filter((g) => g.status === "ready").length, 6);
   for (const game of GAME_CATALOG.filter((g) => g.status === "ready")) {
     assert.ok(game.route, game.id);
   }
