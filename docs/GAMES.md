@@ -57,6 +57,21 @@ Kaynak: `livelatch/tiktok-gift-manager` ve benzeri OBS overlay projeleri.
 
 Bunları oyun değil, ortak **event/overlay katmanı** olarak değerlendireceğiz.
 
+## 5. 🧗 Sky Climb — READY
+
+- Dikey platform tırmanışı
+- Hediye → sıçrama/boost
+- Hareketli platformlar
+- Zirveye ulaşınca zafer ekranı
+- Otomatik yeni tur
+
+## 6. 👹 Boss Raid — READY
+
+- Boss health bar
+- Hediye → doğrudan saldırı
+- Mermi/hasar efektleri
+- Boss yenilince otomatik yeni raid
+
 ## Araştırma sonucu
 
 İlk test için **Horse Race** seçildi çünkü:
