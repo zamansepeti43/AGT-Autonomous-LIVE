@@ -337,7 +337,7 @@ function animate(){
   slime.scale.y=.36+water*.002+Math.sin(t*13)*.035;
   waterDrops.forEach((d,i)=>{d.visible=phase<2.7;const fall=(phase*1.9+i*.12)%1.05;const spout=aBottleRef?.spout;if(spout){aBottleRef.bottle.updateWorldMatrix(true,false);const origin=spout.getWorldPosition(new THREE.Vector3());d.position.set(origin.x+Math.sin(i*2.2)*.10,origin.y-fall*.85,origin.z+.05+Math.cos(i*1.7)*.08)}else d.position.set(.1,1.8-fall,.9);d.scale.setScalar(.65+Math.sin(t*12+i)*.12)});
  }else{waterDrops.forEach(d=>d.visible=false)}
- if(celebrating){
+ if(celebrating||burstActive){
   confetti.forEach((p,i)=>{p.visible=phase<3.4;const a=i*2.399;const fall=(phase*1.4+(i%9)*.12);p.position.set(.42+Math.cos(a)*(1.1+fall*.28),2.7+Math.sin(a)*(1.0+fall*.2)-fall*.65,1.2+Math.sin(a*1.7)*.75);p.rotation.set(t*3+i,t*4+i,t*5+i)});
  }else{confetti.forEach(p=>p.visible=false)}
  if(burstActive){
@@ -347,9 +347,9 @@ function animate(){
   slimeBurst.forEach((p,i)=>{p.visible=elapsed<1.25;const angle=i*2.399,travel=Math.min(1.4,elapsed*2.2);p.position.set(.42+Math.cos(angle)*travel,.55+Math.sin(angle*1.7)*travel+Math.max(0,elapsed)*.25,1.85+Math.sin(angle)*travel);p.scale.setScalar(Math.max(.01,1-elapsed/1.3)*(.7+(i%4)*.15))});
   if(elapsed>=1.3){burstActive=false;slime.visible=true;slime.scale.set(targetX,.34+water*.0015,targetZ);slimeBurst.forEach(p=>p.visible=false)}
  }else{slimeBurst.forEach(p=>p.visible=false)}
- if(action==="add"){slime.scale.x=(1.7+growth*.006)+Math.sin(t*7)*.10;slime.scale.z=(1.5+growth*.006)+Math.sin(t*7)*.10}
+ if(!burstActive){if(action==="add"){slime.scale.x=(1.7+growth*.006)+Math.sin(t*7)*.10;slime.scale.z=(1.5+growth*.006)+Math.sin(t*7)*.10}
  else if(kneading){slime.scale.y=.36+water*.002+Math.sin(t*12)*.055}
- else if(!watering){slime.scale.y=.34+water*.0015}
+ else if(!watering){slime.scale.y=.34+water*.0015}}
  renderer.render(scene,camera)
 }
 updateStats();say("Merhaba! Slime şovuna hoş geldin!");animate();
