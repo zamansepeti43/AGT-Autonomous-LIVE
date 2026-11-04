@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AGT AI Live — Karakter Laboratuvarı</title>
+<style>
+:root{color-scheme:dark;--bg:#090d16;--panel:#111a2a;--line:#26344b;--text:#edf4ff;--muted:#91a2bd;--accent:#8be0c2}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 15%,#1a2a40 0,#090d16 58%);color:var(--text);font:15px Inter,system-ui,sans-serif;min-height:100vh}
+main{max-width:1180px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}.eyebrow{color:var(--accent);font-size:11px;letter-spacing:.18em;font-weight:800}.top h1{margin:5px 0;font-size:clamp(24px,4vw,38px)}.top p{margin:0;color:var(--muted)}
+.layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,.8fr);gap:16px}.stage,.panel{border:1px solid var(--line);background:linear-gradient(145deg,#121d2d,#0d1421);border-radius:18px;overflow:hidden}.stage{position:relative;min-height:590px}#scene{position:absolute;inset:0;width:100%;height:100%}.stage-label{position:absolute;top:16px;left:16px;padding:8px 11px;border:1px solid #40546d;border-radius:999px;background:#0b1420c9;color:#b9f3df;font-size:11px;letter-spacing:.08em}.speech{position:absolute;left:50%;top:16%;transform:translateX(-50%);max-width:75%;padding:12px 16px;border:1px solid #526981;border-radius:16px;background:#101a2ae8;text-align:center;font-weight:700;box-shadow:0 12px 35px #0006;opacity:0;transition:opacity .2s}.speech.show{opacity:1}.stage-foot{position:absolute;bottom:14px;left:16px;right:16px;display:flex;justify-content:space-between;color:#9eafc8;font-size:12px;pointer-events:none}
+.panel{padding:18px}.panel h2{font-size:17px;margin:0 0 6px}.sub{color:var(--muted);font-size:13px;line-height:1.5;margin:0 0 16px}.status{display:flex;align-items:center;gap:8px;color:#b9f3df;font-size:12px;margin-bottom:16px}.dot{width:8px;height:8px;background:#69dfb5;border-radius:50%;box-shadow:0 0 12px #69dfb5}
+label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px}input{width:100%;padding:11px 12px;background:#09111d;border:1px solid var(--line);border-radius:10px;color:white;outline:none}button{border:1px solid #33465f;border-radius:10px;padding:10px 12px;background:#1a2940;color:var(--text);font-weight:700;cursor:pointer}button:hover{border-color:var(--accent)}button.primary{background:#b8f2dc;color:#092019;border-color:#b8f2dc}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.actions{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}.actions button{font-size:12px}.log{height:156px;overflow:auto;background:#09111d;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;color:#a9bad2;line-height:1.6}.log div{border-bottom:1px solid #1d2b3d;padding:4px 0}.hint{font-size:11px;color:#7f91aa;line-height:1.5;margin:12px 0 0}
+@media(max-width:820px){main{padding:14px}.layout{grid-template-columns:1fr}.stage{min-height:480px}.top{align-items:flex-start;flex-direction:column}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
+</head>
+<body><main>
+<header class="top"><div><div class="eyebrow">AGT STUDIO • CHARACTER LAB</div><h1>AGT AI Live — Karakter Laboratuvarı</h1><p>İlk gerçek zamanlı 3D böcek karakter prototipi</p></div><a href="/" style="color:#b9f3df;text-decoration:none">← Ana panele dön</a></header>
+<div class="layout">
+<section class="stage"><canvas id="scene"></canvas><div class="stage-label">3D KARAKTER • PROTOTİP 01</div><div id="speech" class="speech">Merhaba yayın! 🪲</div><div class="stage-foot"><span id="motion">Durum: Bekliyor</span><span>Fareyle sahneyi döndür • sürükle</span></div></section>
+<aside class="panel">
+<h2>Karakter kontrolü</h2><p class="sub">Şimdilik yerel prototip. Hareketler ve ses tarayıcıda çalışır; canlı yayın bağlantısı sonraki aşamada bağlanacak.</p>
+<div class="status"><span class="dot"></span><span id="connection">Karakter hazır • Demo modu</span></div>
+<label for="line">Karaktere söyleteceğin cümle</label><input id="line" value="Selam millet! Bugün burada eğlence var.">
+<div class="buttons"><button class="primary" id="speak">Konuş</button><button id="stopVoice">Sesi durdur</button></div>
+<label>Hareket testleri</label><div class="actions">
+<button data-action="wave">👋 Selam ver</button><button data-action="dance">💃 Dans et</button>
+<button data-action="laugh">😂 Gül</button><button data-action="surprise">😲 Şaşır</button>
+<button data-action="jump">⬆️ Zıpla</button><button data-action="idle">🧍 Bekle</button>
+</div>
+<label>Yayın olayı simülasyonu</label><div class="actions">
+<button data-event="gift">🌹 Hediye gönder</button><button data-event="chat">💬 Yorum yaz</button>
+</div>
+<label>Olay kayıtları</label><div id="log" class="log"><div>Karakter laboratuvarı başlatıldı.</div></div>
+<p class="hint">Not: Bu sürüm, nihai yüksek detaylı Blender modelinin yerine geçen bir önizleme modelidir. Sonraki aşamada kanat, yüz mimikleri, iskelet ve dudak senkronizasyonu eklenecek.</p>
+</aside></div></main>
+<script src="/socket.io/socket.io.js"></script>
+<script type="module">
+import * as THREE from "three";
+const canvas=document.querySelector("#scene"),stage=canvas.parentElement;
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(stage.clientWidth,stage.clientHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();scene.fog=new THREE.Fog(0x0b1421,8,18);
+const camera=new THREE.PerspectiveCamera(34,stage.clientWidth/stage.clientHeight,.1,100);camera.position.set(4.8,3.2,7.8);camera.lookAt(0,1.55,0);
+scene.add(new THREE.HemisphereLight(0xcdeaff,0x34243b,2.1));
+const key=new THREE.DirectionalLight(0xffe4c4,3.3);key.position.set(4,7,5);key.castShadow=true;scene.add(key);
+const rim=new THREE.PointLight(0x51d9bf,22,12);rim.position.set(-4,3,2);scene.add(rim);
+const floor=new THREE.Mesh(new THREE.CircleGeometry(5,64),new THREE.MeshStandardMaterial({color:0x111e2b,roughness:.9,metalness:.1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.03;floor.receiveShadow=true;scene.add(floor);
+const grid=new THREE.GridHelper(10,20,0x29445a,0x1a2a3b);grid.position.y=-.015;scene.add(grid);
+const bug=new THREE.Group();scene.add(bug);
+const shell=new THREE.MeshPhysicalMaterial({color:0x25a879,metalness:.48,roughness:.25,clearcoat:1,clearcoatRoughness:.12});
+const dark=new THREE.MeshStandardMaterial({color:0x173c36,metalness:.25,roughness:.38});
+const gold=new THREE.MeshStandardMaterial({color:0xf5c76b,metalness:.62,roughness:.24});
+const white=new THREE.MeshStandardMaterial({color:0xf7fbff,roughness:.22});
+const black=new THREE.MeshPhysicalMaterial({color:0x07121a,roughness:.08,clearcoat:1});
+function ball(parent,mat,pos,scale,seg=24){const m=new THREE.Mesh(new THREE.SphereGeometry(1,seg,Math.max(12,seg/2)),mat);m.position.set(...pos);m.scale.set(...scale);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
+ball(bug,shell,[0,1.55,0],[.68,.82,.53],32);
+const abdomen=ball(bug,shell,[0,.88,-.08],[.58,.55,.58],32);
+const head=new THREE.Group();head.position.set(0,2.45,.08);bug.add(head);
+ball(head,shell,[0,0,0],[.66,.58,.57],32);
+ball(head,dark,[0,-.29,.47],[.36,.18,.12]);
+ball(head,black,[0,-.27,.565],[.24,.07,.035]);
+for(const s of [-1,1]){
+ ball(head,white,[s*.245,.12,.47],[.19,.22,.12],24);
+ ball(head,black,[s*.245,.12,.575],[.09,.12,.045],24);
+ ball(head,white,[s*.275,.17,.61],[.03,.04,.015],12);
+ const brow=ball(head,dark,[s*.24,.38,.46],[.22,.055,.07],16);brow.rotation.z=s*.18;
+ const antenna=new THREE.Group();antenna.position.set(s*.25,.48,0);head.add(antenna);
+ const stem=new THREE.Mesh(new THREE.CylinderGeometry(.025,.045,.48,10),gold);stem.position.y=.23;stem.rotation.z=-s*.28;antenna.add(stem);
+ const tip=ball(antenna,gold,[s*.13,.47,0],[.09,.09,.09],16);
+ antenna.userData.side=s;bug.userData.antennas??=[];bug.userData.antennas.push(antenna);
+}
+const wings=[];
+for(const s of [-1,1]){const w=ball(bug,new THREE.MeshPhysicalMaterial({color:0x79d9b5,transparent:true,opacity:.58,roughness:.2,metalness:.25}),[s*.55,1.8,-.12],[.42,.16,.62],24);w.rotation.z=s*.3;wings.push(w)}
+const legs=[];
+for(const s of [-1,1])for(let i=0;i<3;i++){
+ const hip=new THREE.Group();hip.position.set(s*.48,1.45-i*.35,.12-i*.23);bug.add(hip);
+ const upper=new THREE.Mesh(new THREE.CylinderGeometry(.065,.085,.48,12),dark);upper.position.set(s*.17,-.18,.02);upper.rotation.z=s*.55;upper.castShadow=true;hip.add(upper);
+ const knee=ball(hip,gold,[s*.34,-.4,.03],[.09,.09,.09],12);
+ const lower=new THREE.Mesh(new THREE.CylinderGeometry(.035,.055,.42,10),dark);lower.position.set(s*.43,-.61,.1);lower.rotation.z=-s*.42;lower.castShadow=true;hip.add(lower);
+ const foot=ball(hip,dark,[s*.48,-.82,.17],[.13,.055,.12],12);
+ legs.push({hip,side:s,index:i});
+}
+const shadow= new THREE.Mesh(new THREE.CircleGeometry(.9,32),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.28}));shadow.rotation.x=-Math.PI/2;shadow.position.y=.01;bug.add(shadow);
+let action="idle",actionUntil=0,clock=new THREE.Clock(),drag=false,lastX=0,lastY=0,rotY=0,rotX=0;
+function setAction(a,duration=1800){action=a;actionUntil=performance.now()+duration;document.querySelector("#motion").textContent="Durum: "+({idle:"Bekliyor",wave:"Selam veriyor",dance:"Dans ediyor",laugh:"Gülüyor",surprise:"Şaşırdı",jump:"Zıplıyor"}[a]||a);addLog("Hareket: "+a)}
+function addLog(t){const el=document.querySelector("#log"),d=document.createElement("div");d.textContent=new Date().toLocaleTimeString("tr-TR")+" — "+t;el.prepend(d);while(el.children.length>30)el.lastChild.remove()}
+function say(text){if(!text)return;const bubble=document.querySelector("#speech");bubble.textContent=text;bubble.classList.add("show");clearTimeout(window.bubbleTimer);window.bubbleTimer=setTimeout(()=>bubble.classList.remove("show"),3600);if("speechSynthesis"in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="tr-TR";u.rate=.94;u.pitch=1.28;const voices=speechSynthesis.getVoices();u.voice=voices.find(v=>v.lang.toLowerCase().startsWith("tr"))||null;speechSynthesis.speak(u)}}
+document.querySelector("#speak").onclick=()=>{const t=document.querySelector("#line").value.trim();say(t);setAction("wave",2300);addLog("Konuşma: "+t)};
+document.querySelector("#stopVoice").onclick=()=>speechSynthesis.cancel();
+document.querySelectorAll("[data-action]").forEach(b=>b.onclick=()=>setAction(b.dataset.action,b.dataset.action==="idle"?999999:2200));
+document.querySelectorAll("[data-event]").forEach(b=>b.onclick=()=>{const type=b.dataset.event;if(type==="gift"){setAction("dance",2600);say("Ooo hediye geldi! Çok teşekkür ederim!")}else{setAction("surprise",1800);say("Yorumunu gördüm! Birazdan cevaplıyorum.")}addLog("Demo olay: "+type)});
+const socket=window.io?.();if(socket){socket.on("live:event",e=>{if(e.type==="gift"){setAction("dance",2600);say((e.user?.nickname||"Dostum")+" hediye gönderdi! Çok teşekkürler!")}else if(e.type==="chat"){setAction("surprise",1200);addLog("Yorum: "+(e.comment||""))}})}
+canvas.addEventListener("pointerdown",e=>{drag=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId)});canvas.addEventListener("pointerup",()=>drag=false);canvas.addEventListener("pointermove",e=>{if(!drag)return;rotY+=(e.clientX-lastX)*.008;rotX=Math.max(-.25,Math.min(.25,rotX+(e.clientY-lastY)*.003));lastX=e.clientX;lastY=e.clientY});
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(stage);
+function animate(){requestAnimationFrame(animate);const t=clock.getElapsedTime(),now=performance.now();if(now>actionUntil&&action!=="idle")setAction("idle",999999);
+bug.rotation.y=rotY+Math.sin(t*.45)*.08;bug.rotation.x=rotX;
+let bounce=Math.sin(t*2.2)*.045,tilt=0;
+if(action==="dance"){bounce=Math.abs(Math.sin(t*8))*.22;tilt=Math.sin(t*8)*.3;bug.rotation.y=rotY+Math.sin(t*8)*.55}
+if(action==="laugh"){bounce=Math.abs(Math.sin(t*13))*.14;tilt=Math.sin(t*13)*.16}
+if(action==="surprise"){tilt=-.12;head.scale.setScalar(1+Math.sin(t*12)*.025)}
+else head.scale.setScalar(1);
+if(action==="jump")bounce=Math.abs(Math.sin(t*5))*.65;
+bug.position.y=bounce;bug.rotation.z=tilt;
+for(const l of legs){const active=action==="dance"||action==="wave"||action==="jump";l.hip.rotation.z=active?l.side*Math.sin(t*(action==="dance"?9:5)+l.index)*.28:Math.sin(t*1.8+l.index)*.035}
+for(const [i,a] of (bug.userData.antennas||[]).entries())a.rotation.z=Math.sin(t*3+i)*.08;
+wings.forEach((w,i)=>{w.rotation.z=(i===0?-1:1)*(.3+Math.sin(t*5)*.08);w.scale.y=.16+(action==="dance"?.05:0)});
+shadow.scale.setScalar(1-bounce*.45);
+renderer.render(scene,camera)}
+animate();say("Selam! Ben AGT'nin minik yayın böceğiyim.");addLog("3D sahne hazır.");
+</script></body></html>
