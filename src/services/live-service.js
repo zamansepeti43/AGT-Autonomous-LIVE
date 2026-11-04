@@ -79,6 +79,14 @@ export class LiveService {
       action: e.action || "join"
     }));
 
+    // Some TikTok LIVE clients emit follow as a dedicated event as well as social.
+    client.on("follow", e => this.ingest({
+      type: "follow",
+      user: normalizeUser(e.user),
+      action: "follow",
+      follow: true
+    }));
+
     client.on("social", e => this.ingest({
       type: "social",
       user: normalizeUser(e.user),
