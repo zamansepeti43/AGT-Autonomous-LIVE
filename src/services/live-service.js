@@ -76,13 +76,15 @@ export class LiveService {
     client.on("member", e => this.ingest({
       type: "member",
       user: normalizeUser(e.user),
-      action: e.action
+      action: e.action || "join"
     }));
 
     client.on("social", e => this.ingest({
       type: "social",
       user: normalizeUser(e.user),
-      action: e.action
+      action: e.action || e.label || e.displayType || "social",
+      follow: Boolean(e.follow || e.isFollow || /follow/i.test(String(e.action || e.label || ""))),
+      share: Boolean(e.share || e.isShare || /share/i.test(String(e.action || e.label || "")))
     }));
 
     client.on("roomUserSeq", e => {
