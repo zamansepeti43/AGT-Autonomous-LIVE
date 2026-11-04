@@ -24,7 +24,23 @@
 <section class="panel"><h2>Canlı olaylar</h2><div id="feed" class="feed"><div class="feed-item">Program başlatıldı. Demo hediyeleri deneyebilirsin.</div></div></section>
 <section class="panel"><h2>Slime kontrolleri</h2><div class="actions"><button id="knead">Yoğur</button><button id="water">Su ekle</button><button id="add">Slime ekle</button></div><p class="footer">Yayın görüntüsü için OBS / TikTok LIVE Studio'da bu sayfayı tarayıcı kaynağı olarak kullan.</p></section>
 </aside></div></main>
-<script src="/socket.io/socket.io.js"></script><script type="module">
+<script src="/socket.io/socket.io.js"></script><script>
+window.addEventListener("error",e=>{
+  const box=document.getElementById("scene-error")||document.createElement("div");
+  box.id="scene-error";
+  box.style.cssText="position:fixed;z-index:99999;left:10px;right:10px;top:100px;padding:12px;background:#5b1010;color:white;border:2px solid #ff8a8a;border-radius:12px;font:13px monospace;white-space:pre-wrap;max-height:35vh;overflow:auto";
+  box.textContent="3B SAHNE HATASI: "+(e.message||"Bilinmeyen hata")+" | "+(e.filename||"")+" : "+(e.lineno||"");
+  document.body.appendChild(box);
+});
+window.addEventListener("unhandledrejection",e=>{
+  const box=document.getElementById("scene-error")||document.createElement("div");
+  box.id="scene-error";
+  box.style.cssText="position:fixed;z-index:99999;left:10px;right:10px;top:100px;padding:12px;background:#5b1010;color:white;border:2px solid #ff8a8a;border-radius:12px;font:13px monospace;white-space:pre-wrap;max-height:35vh;overflow:auto";
+  box.textContent="3B YUKLEME HATASI: "+String(e.reason||e);
+  document.body.appendChild(box);
+});
+</script>
+<script type="module">
 import * as THREE from "three";
 const $=s=>document.querySelector(s),canvas=$("#scene"),stage=canvas.parentElement;
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(stage.clientWidth,stage.clientHeight);renderer.shadowMap.enabled=true;
