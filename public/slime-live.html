@@ -57,47 +57,91 @@ const rimMesh=new THREE.Mesh(new THREE.TorusGeometry(2.28,.13,16,80),new THREE.M
 const slimeMat=new THREE.MeshPhysicalMaterial({color:0xe83eae,roughness:.1,metalness:.02,clearcoat:1,clearcoatRoughness:.035,transmission:.16,thickness:.8});
 const slimeGeo=new THREE.SphereGeometry(1,64,40);const slimeBase=Float32Array.from(slimeGeo.attributes.position.array);const slime=new THREE.Mesh(slimeGeo,slimeMat);slime.scale.set(1.95,.36,1.75);slime.position.set(0,.52,0);slime.castShadow=true;slime.receiveShadow=true;bowl.add(slime);
 const bug=new THREE.Group();scene.add(bug);
-const orange=new THREE.MeshPhysicalMaterial({color:0xe75b19,roughness:.24,clearcoat:.85,clearcoatRoughness:.12}),dark=new THREE.MeshStandardMaterial({color:0x4a251b}),white=new THREE.MeshStandardMaterial({color:0xfff7e9}),black=new THREE.MeshPhysicalMaterial({color:0x170f0d,roughness:.08}),gold=new THREE.MeshStandardMaterial({color:0xf4c36d,metalness:.45});
-function ball(parent,mat,pos,scale){const m=new THREE.Mesh(new THREE.SphereGeometry(1,24,18),mat);m.position.set(...pos);m.scale.set(...scale);m.castShadow=true;parent.add(m);return m}
-ball(bug,orange,[0,1.8,0],[.76,.9,.55]);const head=new THREE.Group();head.position.set(0,2.75,.1);bug.add(head);ball(head,orange,[0,0,0],[.78,.68,.61]);const mouth=ball(head,dark,[0,-.36,.51],[.43,.17,.11]);ball(head,new THREE.MeshStandardMaterial({color:0xf15b91,roughness:.3}),[0,-.44,.61],[.20,.065,.035]);
-for(const s of [-1,1]){ball(head,white,[s*.29,.15,.49],[.25,.28,.14]);ball(head,black,[s*.29,.14,.61],[.12,.15,.055]);ball(head,white,[s*.32,.21,.66],[.04,.05,.02]);const ant=new THREE.Group();ant.position.set(s*.3,.55,0);head.add(ant);const stem=new THREE.Mesh(new THREE.CylinderGeometry(.035,.05,.55,10),dark);stem.position.y=.27;stem.rotation.z=-s*.3;ant.add(stem);ball(ant,orange,[s*.15,.55,0],[.13,.13,.13]);}
-const arms=[];for(const s of [-1,1]){const arm=new THREE.Group();arm.position.set(s*.58,2.1,.05);bug.add(arm);const upper=new THREE.Mesh(new THREE.CapsuleGeometry(.16,.58,5,12),orange);upper.rotation.z=s*.85;upper.position.set(s*.25,-.24,.18);arm.add(upper);const fore=new THREE.Mesh(new THREE.CapsuleGeometry(.14,.46,5,12),orange);fore.rotation.z=-s*.5;fore.position.set(s*.43,-.48,.42);arm.add(fore);const hand=ball(arm,orange,[s*.50,-.68,.57],[.25,.19,.16]);for(let f=0;f<3;f++){const finger=new THREE.Mesh(new THREE.CapsuleGeometry(.045,.16,3,8),orange);finger.rotation.z=(f-1)*.32;finger.position.set(s*.5+(f-1)*.11,-.82,.69);arm.add(finger)}arms.push({arm,side:s})}
-const legs=[];for(const s of [-1,1]){const leg=new THREE.Group();leg.position.set(s*.35,.95,.08);bug.add(leg);const sh=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.52,4,10),orange);sh.rotation.z=-s*.15;sh.position.y=-.35;leg.add(sh);ball(leg,orange,[0,-.7,.2],[.2,.16,.24]);legs.push(leg)}
-bug.position.set(0,-.02,-1.0);bug.scale.set(1.12,1.12,1.12);
-// Optional reference-based character asset. The primitive prototype stays hidden only
-// after a valid, rigged GLB has loaded successfully.
-let importedBug=null, importedMixer=null, importedClips={};
-const gltfLoader=new GLTFLoader();
-gltfLoader.load("/assets/agt-bug.glb",gltf=>{
-  importedBug=gltf.scene;
-  importedBug.name="AGT_Reference_Bug";
-  importedBug.position.set(0,-.02,-1.0);
-  importedBug.scale.setScalar(1);
-  importedBug.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
-  scene.add(importedBug);
-  if(gltf.animations?.length){
-    importedMixer=new THREE.AnimationMixer(importedBug);
-    for(const clip of gltf.animations){
-      const n=clip.name.toLowerCase();
-      const key=n.includes("halay")||n.includes("dance")?"halay":
-        n.includes("knead")||n.includes("slime")||n.includes("mix")?"knead":
-        n.includes("wave")||n.includes("hello")?"wave":
-        n.includes("celebr")||n.includes("jump")?"celebrate":
-        n.includes("idle")?"idle":n;
-      importedClips[key]=importedMixer.clipAction(clip);
-    }
-  }
-  bug.visible=false;
-  log("Referans karakter modeli yüklendi.");
-},undefined,err=>{console.info("AGT reference GLB not installed yet; prototype remains visible.",err);});
-function playImportedAction(name){
-  if(!importedMixer)return;
-  const key=name==="dance"?"halay":name;
-  const next=importedClips[key]||importedClips.idle;
-  if(!next)return;
-  Object.values(importedClips).forEach(a=>{if(a!==next)a.fadeOut(.12)});
-  next.reset().fadeIn(.12).play();
+const orange=new THREE.MeshPhysicalMaterial({color:0xff681d,roughness:.2,clearcoat:1,clearcoatRoughness:.08});
+const orangeDark=new THREE.MeshPhysicalMaterial({color:0xd94a13,roughness:.27,clearcoat:.8});
+const antennaMat=new THREE.MeshStandardMaterial({color:0x3c211a,roughness:.42});
+const white=new THREE.MeshPhysicalMaterial({color:0xfffbf3,roughness:.12,clearcoat:.7});
+const iris=new THREE.MeshPhysicalMaterial({color:0x9b5527,roughness:.16,clearcoat:.9});
+const black=new THREE.MeshPhysicalMaterial({color:0x100d0c,roughness:.08,clearcoat:1});
+const pink=new THREE.MeshPhysicalMaterial({color:0xf34b91,roughness:.18,clearcoat:1});
+const browMat=new THREE.MeshStandardMaterial({color:0x54271c,roughness:.45});
+function sculpt(parent,mat,pos,scale,kind="soft"){
+ const g=new THREE.SphereGeometry(1,40,28);
+ const p=g.attributes.position;
+ for(let i=0;i<p.count;i++){
+  let x=p.getX(i),y=p.getY(i),z=p.getZ(i);
+  if(kind==="head"){x*=1-.10*Math.max(0,-y);z*=1+.035*Math.cos(y*3);y*=1+.035*Math.cos(x*3)}
+  if(kind==="body"){x*=1-.12*Math.max(0,y);z*=.94+.08*Math.cos(y*2)}
+  if(kind==="cheek"){x*=1.08;y*=.78}
+  p.setXYZ(i,x,y,z);
+ }
+ g.computeVertexNormals();
+ const m=new THREE.Mesh(g,mat);m.position.set(...pos);m.scale.set(...scale);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;
 }
+function tube(parent,points,radius,mat){
+ const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
+ const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,32,radius,12,false),mat);
+ mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;
+}
+// Proportions follow the approved orange mascot reference: large expressive head,
+// compact pear-shaped torso, curved antennae, big eyes, smile and rounded fingers.
+sculpt(bug,orange,[0,1.63,0],[.53,.68,.43],"body");
+const belly=sculpt(bug,orangeDark,[0,1.35,.365],[.30,.35,.09],"soft");
+const head=new THREE.Group();head.position.set(0,2.48,.035);bug.add(head);
+sculpt(head,orange,[0,0,0],[.79,.69,.59],"head");
+for(const s of [-1,1]){
+ sculpt(head,orange,[s*.51,-.17,.30],[.23,.19,.20],"cheek");
+ // Eye whites, warm irises, pupils and two specular highlights.
+ sculpt(head,white,[s*.285,.12,.49],[.265,.315,.145]);
+ sculpt(head,iris,[s*.285,.085,.615],[.155,.185,.065]);
+ sculpt(head,black,[s*.285,.095,.667],[.105,.135,.045]);
+ sculpt(head,white,[s*.32,.165,.704],[.045,.055,.018]);
+ sculpt(head,white,[s*.245,.035,.708],[.018,.022,.012]);
+ // expressive curved eyebrow
+ tube(head,[[s*.08,.43,.49],[s*.23,.49,.51],[s*.40,.44,.48]],.035,browMat);
+ // antennae with arched stems and orange bulbs
+ const ax=s*.30;
+ tube(head,[[ax,.51,-.02],[ax+s*.03,.82,-.01],[ax+s*.18,1.12,-.01],[ax+s*.34,1.23,0]],.045,antennaMat);
+ sculpt(head,orange,[ax+s*.34,1.23,0],[.13,.13,.13]);
+}
+// Open smiling mouth: dark curved cavity, lower lip and tiny upper teeth.
+const mouthShape=new THREE.Shape();
+mouthShape.moveTo(-.34,0);mouthShape.bezierCurveTo(-.20,-.22,.20,-.22,.34,0);
+mouthShape.bezierCurveTo(.20,-.40,-.20,-.40,-.34,0);
+const mouthGeo=new THREE.ShapeGeometry(mouthShape,32);
+const mouth=new THREE.Mesh(mouthGeo,new THREE.MeshStandardMaterial({color:0x32120f,side:THREE.DoubleSide}));
+mouth.position.set(0,-.31,.535);mouth.scale.set(1,1,.65);head.add(mouth);
+sculpt(head,pink,[0,-.52,.55],[.18,.065,.035]);
+const teeth=new THREE.Mesh(new THREE.BoxGeometry(.30,.045,.025),white);teeth.position.set(0,-.365,.55);head.add(teeth);
+// Arms are articulated as shoulder groups; forearms curve forward to the slime.
+const arms=[];
+for(const s of [-1,1]){
+ const arm=new THREE.Group();arm.position.set(s*.48,1.98,.02);bug.add(arm);
+ sculpt(arm,orange,[s*.18,-.12,.10],[.22,.34,.22]);
+ tube(arm,[[s*.15,-.18,.14],[s*.34,-.35,.29],[s*.45,-.55,.47]],.145,orange);
+ const fore=new THREE.Group();fore.position.set(s*.45,-.55,.47);arm.add(fore);
+ tube(fore,[[0,0,0],[s*.03,-.12,.06],[s*.02,-.28,.10]],.13,orange);
+ sculpt(fore,orange,[s*.02,-.34,.14],[.20,.16,.17]);
+ // Four short, individually visible rounded fingers.
+ for(let f=0;f<4;f++){
+  const x=(f-1.5)*.085;
+  tube(fore,[[x,-.40,.22],[x+s*.012,-.49,.27],[x+s*.025,-.53,.25]],.038,orangeDark);
+ }
+ arms.push({arm,side:s,fore});
+}
+// Seated legs: thighs extend forward, lower legs drop behind the tabletop.
+const legs=[];
+for(const s of [-1,1]){
+ const leg=new THREE.Group();leg.position.set(s*.29,.94,.03);bug.add(leg);
+ tube(leg,[[0,0,0],[s*.10,-.10,.22],[s*.23,-.18,.40]],.16,orange);
+ sculpt(leg,orange,[s*.23,-.20,.43],[.19,.15,.25]);
+ tube(leg,[[s*.23,-.20,.43],[s*.26,-.43,.38],[s*.25,-.63,.28]],.105,orangeDark);
+ sculpt(leg,orange,[s*.25,-.66,.34],[.20,.12,.27]);
+ legs.push(leg);
+}
+// Subtle neck transition and rear shell give the mascot a complete silhouette.
+sculpt(bug,orangeDark,[0,1.62,-.30],[.42,.48,.20]);
+bug.position.set(0,.04,-1.0);bug.scale.set(1.0,1.0,1.0);
 let growth=38,water=5,action="idle",actionEnd=0,clock=new THREE.Clock(),socket=null;
 function updateStats(){ $("#growth").style.width=growth+"%";$("#growthText").textContent=growth+"%";$("#waterText").textContent="%"+water;$("#level").textContent=String(Math.max(1,Math.floor(growth/20)));slime.scale.x=1.7+growth*.006;slime.scale.z=1.5+growth*.006;slime.scale.y=.34+water*.0015}
 function log(msg){const comments=$("#liveComments");if(comments){const row=document.createElement("div");row.textContent=msg;comments.prepend(row);while(comments.children.length>5)comments.lastChild.remove()}const item=document.createElement("div");item.className="feed-item";item.textContent=msg;$("#feed").prepend(item);while($("#feed").children.length>20)$("#feed").lastChild.remove();const stageItem=item.cloneNode(true);$("#stageFeed").prepend(stageItem);while($("#stageFeed").children.length>3)$("#stageFeed").lastChild.remove()}
