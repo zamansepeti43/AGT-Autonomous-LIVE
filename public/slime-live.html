@@ -190,10 +190,63 @@ bug.position.set(.42,.02,-.82);bug.scale.set(.88,.88,.88);
 let growth=38,water=5,action="idle",actionEnd=0,clock=new THREE.Clock(),socket=null;
 function updateStats(){ $("#growth").style.width=growth+"%";$("#growthText").textContent=growth+"%";$("#waterText").textContent="%"+water;$("#level").textContent=String(Math.max(1,Math.floor(growth/20)));slime.scale.x=1.7+growth*.006;slime.scale.z=1.5+growth*.006;slime.scale.y=.34+water*.0015}
 function log(msg){const comments=$("#liveComments");if(comments){const row=document.createElement("div");row.textContent=msg;comments.prepend(row);while(comments.children.length>5)comments.lastChild.remove()}const item=document.createElement("div");item.className="feed-item";item.textContent=msg;$("#feed").prepend(item);while($("#feed").children.length>20)$("#feed").lastChild.remove();const stageItem=item.cloneNode(true);$("#stageFeed").prepend(stageItem);while($("#stageFeed").children.length>3)$("#stageFeed").lastChild.remove()}
-function say(msg){const b=$("#speech");b.textContent=msg;b.classList.add("show");clearTimeout(window.sayTimer);window.sayTimer=setTimeout(()=>b.classList.remove("show"),3300);if("speechSynthesis"in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(msg);u.lang="tr-TR";u.rate=.96;u.pitch=1.15;speechSynthesis.speak(u)}}
+const voiceQueue=[];let speaking=false,lastSpokenAt=0;
+function say(msg,priority="normal"){
+ const text=String(msg||"").trim();if(!text)return;
+ const b=$("#speech");b.textContent=text;b.classList.add("show");clearTimeout(window.sayTimer);window.sayTimer=setTimeout(()=>b.classList.remove("show"),4200);
+ if(!("speechSynthesis"in window))return;
+ if(priority==="urgent")voiceQueue.unshift(text);else voiceQueue.push(text);
+ while(voiceQueue.length>7)voiceQueue.splice(1,1);
+ pumpVoiceQueue();
+}
+function pumpVoiceQueue(){
+ if(speaking||!voiceQueue.length||!("speechSynthesis"in window))return;
+ const text=voiceQueue.shift();speaking=true;
+ const u=new SpeechSynthesisUtterance(text);u.lang="tr-TR";u.rate=.91;u.pitch=1.08;u.volume=1;
+ const voices=speechSynthesis.getVoices();const tr=voices.find(v=>/^tr(-|_)/i.test(v.lang));if(tr)u.voice=tr;
+ u.onend=u.onerror=()=>{speaking=false;lastSpokenAt=Date.now();setTimeout(pumpVoiceQueue,180)};
+ speechSynthesis.speak(u);
+}
+if("speechSynthesis"in window)speechSynthesis.onvoiceschanged=()=>{if(!speaking)pumpVoiceQueue()};
 function act(name,msg,duration=2600){action=name;actionEnd=performance.now()+duration;if(msg)say(msg)}
 function gift(name,user="Bir izleyici"){const banner=$("#bigGift");if(banner){banner.innerHTML="🎁<b>En Büyük Hediye</b><span>"+user+" • "+name+"</span>"}const n=(name||"").toLowerCase();let actionName="knead",msg=user+" hediyen için teşekkürler!";if(n.includes("heart me")||n.includes("heart")){actionName="dance";msg="Kalp geldi! Hadi dans!";}else if(n.includes("finger")||n.includes("hand")){actionName="halay";msg="Halay başlasın!";}else if(n.includes("rose")||n.includes("gül")){water=Math.min(100,water+8);actionName="water";msg=user+" slime'a su ekliyor!";}else if(n.includes("tiktok")||n.includes("music")){growth=Math.min(100,growth+12);actionName="add";msg="Yeni slime ekliyoruz!";}else if(n.includes("bear")||n.includes("mishka")||n.includes("galaxy")||n.includes("lion")){growth=Math.min(100,growth+25);actionName="celebrate";msg="Vay canına! Büyük hediye geldi!";}else{actionName="knead";growth=Math.min(100,growth+3);msg="Teşekkürler "+user+"! Slime yoğuruyorum."}updateStats();act(actionName,msg,3600);log("🎁 "+user+" • "+name)}
-function event(e){if(!e)return;const user=e.user?.nickname||e.user?.uniqueId||"İzleyici";if(e.type==="gift"){gift(e.giftName||"Hediye",user);return}if(e.type==="chat"){const comment=e.comment||"";log("💬 "+user+": "+comment);say(user+" diyor ki: "+comment);return}if(e.type==="social"||e.type==="member"){const actionText=(e.action||"").toLowerCase();if(actionText.includes("follow")||actionText.includes("share")||e.type==="member"){log("⭐ "+user+" yayına katıldı / takip etti");act("wave","Hoş geldin "+user+"!",1800)}}}
+const seenEvents=new Set();
+function rememberEvent(e){const key=[e.type,e.user?.uniqueId||e.user?.nickname,e.comment||"",e.giftName||"",e.action||"",Math.floor((e.ts||Date.now())/1800)].join("|");if(seenEvents.has(key))return false;seenEvents.add(key);if(seenEvents.size>250)seenEvents.clear();return true}
+function event(e){
+ if(!e||!rememberEvent(e))return;
+ const user=e.user?.nickname||e.user?.uniqueId||"İzleyici";
+ if(e.type==="gift"){gift(e.giftName||"Hediye",user);return}
+ if(e.type==="chat"){
+  const comment=String(e.comment||"").trim();if(!comment)return;
+  log("💬 "+user+": "+comment);
+  const lower=comment.toLocaleLowerCase("tr-TR");
+  if(/merhaba|selam|hello|hoş geldin/.test(lower)){act("wave","Merhaba "+user+"! Yayınımıza hoş geldin.",2200)}
+  else if(/dans|oyna|halay/.test(lower)){act("dance",user+" dans istiyor! Hemen oynuyorum.",2400)}
+  else if(/slime|yoğur|yogur/.test(lower)){act("knead",user+" için slime yoğuruyorum.",2400)}
+  say(user+" şöyle yazdı: "+comment);
+  return;
+ }
+ if(e.type==="social"||e.type==="member"||e.type==="follow"){
+  const raw=String(e.action||e.label||e.displayType||"").toLowerCase();
+  const isFollow=e.type==="follow"||e.follow===true||e.isFollow===true||/follow|takip/.test(raw);
+  const isShare=e.share===true||e.isShare===true||/share|paylaş/.test(raw);
+  if(isFollow){
+   log("⭐ "+user+" takip etti");
+   act("wave",user+" ailemize katıldı, hoş geldin!",2600);
+   say(user+" bizi takip etti. Hoş geldin!", "urgent");
+  }else if(isShare){
+   log("↗ "+user+" yayını paylaştı");
+   act("celebrate",user+" yayını paylaştı, çok teşekkürler!",2400);
+   say(user+" yayını paylaştı. Çok teşekkür ederiz!");
+  }else if(e.type==="member"){
+   log("👋 "+user+" yayına katıldı");
+  }
+  return;
+ }
+ if(e.type==="room:viewers"||e.type==="roomUserSeq"){
+  const count=Number(e.viewerCount||e.totalViewers||0);if(count>0)$("#viewers").textContent=count.toLocaleString("tr-TR");
+ }
+}
 document.querySelectorAll("[data-gift]").forEach(b=>b.onclick=()=>gift(b.dataset.gift,"Demo izleyici"));
 $("#knead").onclick=()=>act("knead","Slime'ı güzelce yoğuruyorum!");$("#water").onclick=()=>{water=Math.min(100,water+10);updateStats();act("water","Biraz su ekliyorum!")};$("#add").onclick=()=>{growth=Math.min(100,growth+12);updateStats();act("add","Yeni slime ekledim!")};
 $("#demo").onclick=()=>{socket??=window.io?.();socket?.emit("join-stream",{username:"demo",mode:"demo"});$("#status").textContent="● Demo modu";log("Demo modu açıldı")};
@@ -201,9 +254,9 @@ $("#connect").onclick=()=>{const username=$("#username").value.trim().replace(/^
 $("#stop").onclick=()=>{socket?.emit("leave-stream");$("#status").textContent="● Bağlantı kesildi";log("Yayın bağlantısı kesildi")};
 document.querySelector("#chatDemo").onclick=()=>say("Yorumlar canlı yayından okunacak.");document.querySelector("#giftDemo").onclick=()=>gift("Rose","Demo izleyici");document.querySelector("#peopleDemo").onclick=()=>{log("⭐ Yeni takipçi: Demo izleyici");act("wave","Aramıza hoş geldin!")};document.querySelector("#settings").onclick=()=>{const username=prompt("TikTok canlı yayın kullanıcı adı (@ olmadan da yazabilirsin):");if(!username)return;socket??=window.io?.();if(!socket){say("Canlı bağlantı sunucusu bulunamadı.");return}socket.emit("join-stream",{username:username.trim().replace(/^@/,""),mode:"live"});$("#status").textContent="● Bağlanıyor";say("@"+username+" yayınına bağlanıyorum")};
 document.querySelector("#demoToggle").onchange=e=>{if(e.target.checked){socket??=window.io?.();socket?.emit("join-stream",{username:"demo",mode:"demo"});$("#status").textContent="● DEMO"}else{socket?.emit("leave-stream");$("#status").textContent="● Bağlantı kesildi"}};
-socket=window.io?.();if(socket){socket.on("live:event",event);socket.on("stream-status",s=>{$("#status").textContent=s.mode==="demo"?"● Demo modu":s.connected?"● LIVE bağlı: @"+s.username:"● Bağlantı bekleniyor"});socket.on("stream-error",e=>{say("Bağlantı hatası: "+e.message);$("#status").textContent="● Bağlantı hatası"});socket.on("live:connected",()=>log("TikTok LIVE bağlantısı kuruldu"))}
+socket=window.io?.();if(socket){socket.on("live:event",event);socket.on("stream-status",s=>{$("#status").textContent=s.mode==="demo"?"● Demo modu":s.connected?"● LIVE bağlı: @"+s.username:"● Bağlantı bekleniyor"});socket.on("stream-error",e=>{say("Bağlantı hatası: "+e.message);$("#status").textContent="● Bağlantı hatası"});socket.on("live:connected",()=>{log("TikTok LIVE bağlantısı kuruldu");say("Canlı yayına bağlandım. Yorumlarınızı takip ediyorum!")});socket.on("room:viewers",e=>{const n=Number(e?.viewerCount||0);if(n>0)$("#viewers").textContent=n.toLocaleString("tr-TR")});socket.on("live:disconnected",()=>{log("⚠ TikTok bağlantısı kesildi");say("Canlı yayın bağlantısı kesildi.")})}
 function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(stage);window.addEventListener("orientationchange",()=>setTimeout(resize,250));
-function animate(){requestAnimationFrame(animate);const t=clock.getElapsedTime(),now=performance.now();if(now>actionEnd&&action!=="idle")action="idle";bug.position.y=-.02+Math.sin(t*2)*.018;bug.rotation.y=Math.sin(t*.5)*.035;head.rotation.z=Math.sin(t*1.7)*.035;arms.forEach((a,i)=>{a.arm.rotation.z=action==="halay"?a.side*(.7+Math.sin(t*10)*.35):action==="dance"?a.side*(.4+Math.sin(t*8+i)*.25):action==="wave"&&i===1?Math.sin(t*10)*.8:action==="knead"?(i===0?-.18:.18)+Math.sin(t*11+i)*.18:action==="water"?(i===0?-.45:.25)+Math.sin(t*7)*.08:action==="add"?(i===0?-.25:.25)+Math.sin(t*8+i)*.1:Math.sin(t*1.5+i)*.04});legs.forEach((l,i)=>{l.rotation.z=action==="halay"?Math.sin(t*10+i)*.35:action==="dance"?Math.sin(t*8+i)*.3:0});
+function animate(){requestAnimationFrame(animate);const t=clock.getElapsedTime(),now=performance.now();if(now>actionEnd&&action!=="idle")action="idle";bug.position.y=-.02+Math.sin(t*2)*.018;bug.rotation.y=Math.sin(t*.5)*.035;head.rotation.z=Math.sin(t*1.7)*.035;head.rotation.x=action==="knead"?Math.sin(t*5)*.035:action==="wave"?-.04:Math.sin(t*1.3)*.012;arms.forEach((a,i)=>{a.arm.rotation.z=action==="halay"?a.side*(.7+Math.sin(t*10)*.35):action==="dance"?a.side*(.4+Math.sin(t*8+i)*.25):action==="wave"&&i===1?Math.sin(t*10)*.8:action==="knead"?(i===0?-.18:.18)+Math.sin(t*11+i)*.18:action==="water"?(i===0?-.45:.25)+Math.sin(t*7)*.08:action==="add"?(i===0?-.25:.25)+Math.sin(t*8+i)*.1:Math.sin(t*1.5+i)*.04});legs.forEach((l,i)=>{l.rotation.z=action==="halay"?Math.sin(t*10+i)*.35:action==="dance"?Math.sin(t*8+i)*.3:0});
 const p=slimeGeo.attributes.position;for(let i=0;i<p.count;i++){const x=slimeBase[i*3],y=slimeBase[i*3+1],z=slimeBase[i*3+2];const wave=Math.sin(t*3+x*2+z*2)*.018;const extra=action==="knead"||action==="water"||action==="add"?Math.sin(t*8+x*3)*.045:0;p.setY(i,y+wave+extra)}p.needsUpdate=true;slimeGeo.computeVertexNormals();
 if(action==="water"){slime.scale.y=.34+water*.0015+Math.sin(t*12)*.025}else if(action==="add"){slime.scale.x=(1.7+growth*.006)+Math.sin(t*7)*.08;slime.scale.z=(1.5+growth*.006)+Math.sin(t*7)*.08}else if(action==="knead"){slime.scale.y=.34+water*.0015+Math.sin(t*10)*.025}
 if(action==="knead"||action==="add"){arms.forEach((a,i)=>{a.arm.rotation.x=Math.sin(t*10+i)*.22})}else{arms.forEach(a=>a.arm.rotation.x=0)}
