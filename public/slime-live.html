@@ -45,7 +45,7 @@ import * as THREE from "three";
 const $=s=>document.querySelector(s),canvas=$("#scene"),stage=canvas.parentElement;
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(stage.clientWidth,stage.clientHeight);renderer.shadowMap.enabled=true;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x33251d);scene.fog=new THREE.Fog(0x33251d,13,24);
-const camera=new THREE.PerspectiveCamera(34,stage.clientWidth/stage.clientHeight,.1,100);camera.position.set(0,4.15,11.6);camera.lookAt(0,2.0,.35);
+const camera=new THREE.PerspectiveCamera(34,stage.clientWidth/stage.clientHeight,.1,100);camera.position.set(.28,4.05,11.6);camera.lookAt(.32,1.95,.55);
 scene.add(new THREE.HemisphereLight(0xe5f5ff,0x594039,2.3));const key=new THREE.DirectionalLight(0xffe6cf,3.1);key.position.set(4,8,5);key.castShadow=true;scene.add(key);const rim=new THREE.PointLight(0x62e2c3,18,12);rim.position.set(-4,3,2);scene.add(rim);
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(22,22),new THREE.MeshStandardMaterial({color:0x573c2b,roughness:.88}));floor.rotation.x=-Math.PI/2;floor.position.y=-.08;scene.add(floor);
 const wall=new THREE.Mesh(new THREE.PlaneGeometry(18,10),new THREE.MeshStandardMaterial({color:0x42291f,roughness:.95}));wall.position.set(0,4,-4.5);scene.add(wall);
@@ -121,18 +121,14 @@ for(const s of [-1,1]){
  sculpt(head,orange,[ax+s*.34,1.23,0],[.13,.13,.13]);
 }
 // Open smiling mouth: dark curved cavity, lower lip and tiny upper teeth.
-const mouthShape=new THREE.Shape();
-mouthShape.moveTo(-.34,0);mouthShape.bezierCurveTo(-.20,-.22,.20,-.22,.34,0);
-mouthShape.bezierCurveTo(.20,-.40,-.20,-.40,-.34,0);
-const mouthGeo=new THREE.ShapeGeometry(mouthShape,32);
-const mouth=new THREE.Mesh(mouthGeo,new THREE.MeshStandardMaterial({color:0x32120f,side:THREE.DoubleSide}));
-mouth.position.set(0,-.31,.535);mouth.scale.set(1,1,.65);head.add(mouth);
-sculpt(head,pink,[0,-.52,.55],[.18,.065,.035]);
-const teeth=new THREE.Mesh(new THREE.BoxGeometry(.30,.045,.025),white);teeth.position.set(0,-.365,.55);head.add(teeth);
+// Clean open smile: a single dark cavity and rounded pink tongue.
+const mouth= sculpt(head,dark,[0,-.355,.535],[.34,.075,.19]);
+mouth.material=new THREE.MeshStandardMaterial({color:0x351018,roughness:.35});
+sculpt(head,pink,[0,-.425,.602],[.19,.045,.055]);
 // Arms are articulated as shoulder groups; forearms curve forward to the slime.
 const arms=[];
 for(const s of [-1,1]){
- const arm=new THREE.Group();arm.position.set(s*.48,1.98,.02);bug.add(arm);
+ const arm=new THREE.Group();arm.position.set(s*.48,1.63,.78);bug.add(arm);
  sculpt(arm,orange,[s*.18,-.12,.10],[.22,.34,.22]);
  tube(arm,[[s*.15,-.18,.14],[s*.34,-.35,.29],[s*.45,-.55,.47]],.145,orange);
  const fore=new THREE.Group();fore.position.set(s*.45,-.55,.47);arm.add(fore);
@@ -157,7 +153,7 @@ for(const s of [-1,1]){
 }
 // Subtle neck transition and rear shell give the mascot a complete silhouette.
 sculpt(bug,orangeDark,[0,1.62,-.30],[.42,.48,.20]);
-bug.position.set(0,.04,-1.0);bug.scale.set(1.0,1.0,1.0);
+bug.position.set(.48,.02,-.82);bug.scale.set(.94,.94,.94);
 let growth=38,water=5,action="idle",actionEnd=0,clock=new THREE.Clock(),socket=null;
 function updateStats(){ $("#growth").style.width=growth+"%";$("#growthText").textContent=growth+"%";$("#waterText").textContent="%"+water;$("#level").textContent=String(Math.max(1,Math.floor(growth/20)));slime.scale.x=1.7+growth*.006;slime.scale.z=1.5+growth*.006;slime.scale.y=.34+water*.0015}
 function log(msg){const comments=$("#liveComments");if(comments){const row=document.createElement("div");row.textContent=msg;comments.prepend(row);while(comments.children.length>5)comments.lastChild.remove()}const item=document.createElement("div");item.className="feed-item";item.textContent=msg;$("#feed").prepend(item);while($("#feed").children.length>20)$("#feed").lastChild.remove();const stageItem=item.cloneNode(true);$("#stageFeed").prepend(stageItem);while($("#stageFeed").children.length>3)$("#stageFeed").lastChild.remove()}
@@ -174,7 +170,7 @@ document.querySelector("#chatDemo").onclick=()=>say("Yorumlar canlı yayından o
 document.querySelector("#demoToggle").onchange=e=>{if(e.target.checked){socket??=window.io?.();socket?.emit("join-stream",{username:"demo",mode:"demo"});$("#status").textContent="● DEMO"}else{socket?.emit("leave-stream");$("#status").textContent="● Bağlantı kesildi"}};
 socket=window.io?.();if(socket){socket.on("live:event",event);socket.on("stream-status",s=>{$("#status").textContent=s.mode==="demo"?"● Demo modu":s.connected?"● LIVE bağlı: @"+s.username:"● Bağlantı bekleniyor"});socket.on("stream-error",e=>{say("Bağlantı hatası: "+e.message);$("#status").textContent="● Bağlantı hatası"});socket.on("live:connected",()=>log("TikTok LIVE bağlantısı kuruldu"))}
 function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(stage);window.addEventListener("orientationchange",()=>setTimeout(resize,250));
-function animate(){requestAnimationFrame(animate);const t=clock.getElapsedTime(),now=performance.now();if(now>actionEnd&&action!=="idle")action="idle";bug.position.y=-.02+Math.sin(t*2)*.018;bug.rotation.y=Math.sin(t*.5)*.035;head.rotation.z=Math.sin(t*1.7)*.035;arms.forEach((a,i)=>{a.arm.rotation.z=action==="halay"?a.side*(.7+Math.sin(t*10)*.35):action==="dance"?a.side*(.4+Math.sin(t*8+i)*.25):action==="wave"&&i===1?Math.sin(t*10)*.8:action==="knead"?(i===0?-.55:.55)+Math.sin(t*11+i)*.24:action==="water"?(i===0?-.9:.35)+Math.sin(t*7)*.08:action==="add"?(i===0?-.45:.45)+Math.sin(t*8+i)*.1:Math.sin(t*1.5+i)*.04});legs.forEach((l,i)=>{l.rotation.z=action==="halay"?Math.sin(t*10+i)*.35:action==="dance"?Math.sin(t*8+i)*.3:0});
+function animate(){requestAnimationFrame(animate);const t=clock.getElapsedTime(),now=performance.now();if(now>actionEnd&&action!=="idle")action="idle";bug.position.y=-.02+Math.sin(t*2)*.018;bug.rotation.y=Math.sin(t*.5)*.035;head.rotation.z=Math.sin(t*1.7)*.035;arms.forEach((a,i)=>{a.arm.rotation.z=action==="halay"?a.side*(.7+Math.sin(t*10)*.35):action==="dance"?a.side*(.4+Math.sin(t*8+i)*.25):action==="wave"&&i===1?Math.sin(t*10)*.8:action==="knead"?(i===0?-.18:.18)+Math.sin(t*11+i)*.18:action==="water"?(i===0?-.45:.25)+Math.sin(t*7)*.08:action==="add"?(i===0?-.25:.25)+Math.sin(t*8+i)*.1:Math.sin(t*1.5+i)*.04});legs.forEach((l,i)=>{l.rotation.z=action==="halay"?Math.sin(t*10+i)*.35:action==="dance"?Math.sin(t*8+i)*.3:0});
 const p=slimeGeo.attributes.position;for(let i=0;i<p.count;i++){const x=slimeBase[i*3],y=slimeBase[i*3+1],z=slimeBase[i*3+2];const wave=Math.sin(t*3+x*2+z*2)*.018;const extra=action==="knead"||action==="water"||action==="add"?Math.sin(t*8+x*3)*.045:0;p.setY(i,y+wave+extra)}p.needsUpdate=true;slimeGeo.computeVertexNormals();
 if(action==="water"){slime.scale.y=.34+water*.0015+Math.sin(t*12)*.025}else if(action==="add"){slime.scale.x=(1.7+growth*.006)+Math.sin(t*7)*.08;slime.scale.z=(1.5+growth*.006)+Math.sin(t*7)*.08}else if(action==="knead"){slime.scale.y=.34+water*.0015+Math.sin(t*10)*.025}
 if(action==="knead"||action==="add"){arms.forEach((a,i)=>{a.arm.rotation.x=Math.sin(t*10+i)*.22})}else{arms.forEach(a=>a.arm.rotation.x=0)}
