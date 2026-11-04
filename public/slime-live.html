@@ -69,6 +69,18 @@ const slimeMat=new THREE.MeshPhysicalMaterial({color:0xe83eae,roughness:.1,metal
 const slimeGeo=new THREE.SphereGeometry(1,64,40);const slimeBase=Float32Array.from(slimeGeo.attributes.position.array);const slime=new THREE.Mesh(slimeGeo,slimeMat);slime.scale.set(1.95,.36,1.75);slime.position.set(0,.52,0);slime.castShadow=true;slime.receiveShadow=true;bowl.add(slime);
 const waterVisual=new THREE.Mesh(new THREE.CylinderGeometry(1.82,1.82,.035,56),new THREE.MeshPhysicalMaterial({color:0x42c9f4,transparent:true,opacity:.58,roughness:.12,metalness:.02,clearcoat:1}));
 waterVisual.position.set(0,.29,0);waterVisual.scale.set(.88,1,.82);bowl.add(waterVisual);
+// Independent tabletop ingredient props, animated separately from the fixed studio plate.
+const propGlass=new THREE.MeshPhysicalMaterial({color:0xbcefff,transparent:true,opacity:.62,roughness:.12,transmission:.42,clearcoat:1});
+const propLid=new THREE.MeshStandardMaterial({color:0xc6a58b,metalness:.35,roughness:.28});
+const pitcher=new THREE.Group();scene.add(pitcher);pitcher.position.set(-2.45,.10,2.25);
+const pitcherBody=new THREE.Mesh(new THREE.CylinderGeometry(.34,.42,.72,32,1,true),propGlass);pitcherBody.position.y=.42;pitcher.add(pitcherBody);
+const pitcherBase=new THREE.Mesh(new THREE.CylinderGeometry(.40,.42,.08,32),propGlass);pitcherBase.position.y=.08;pitcher.add(pitcherBase);
+const pitcherRim=new THREE.Mesh(new THREE.TorusGeometry(.34,.035,12,32),propGlass);pitcherRim.rotation.x=Math.PI/2;pitcherRim.position.y=.79;pitcher.add(pitcherRim);
+const pitcherHandle=new THREE.Mesh(new THREE.TorusGeometry(.25,.045,12,28,Math.PI*1.65),propGlass);pitcherHandle.position.set(-.38,.43,0);pitcherHandle.rotation.z=Math.PI/2;pitcher.add(pitcherHandle);
+const pitcherWater=new THREE.Mesh(new THREE.CylinderGeometry(.29,.34,.28,28),new THREE.MeshPhysicalMaterial({color:0x55cfff,transparent:true,opacity:.7,roughness:.08,clearcoat:1}));pitcherWater.position.y=.27;pitcher.add(pitcherWater);
+const ingredientJars=[];
+for(let i=0;i<3;i++){const jar=new THREE.Group();scene.add(jar);jar.position.set(2.15+i*.58,.08,2.25+(i%2)*.16);const body=new THREE.Mesh(new THREE.CylinderGeometry(.20,.22,.43,24,1,true),propGlass);body.position.y=.25;jar.add(body);const lid=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.06,24),propLid);lid.position.y=.5;jar.add(lid);const fill=new THREE.Mesh(new THREE.SphereGeometry(.16,20,14),new THREE.MeshPhysicalMaterial({color:[0xf6c34b,0xff63c6,0x7ce4ff][i],roughness:.2,clearcoat:1}));fill.scale.y=.45;fill.position.y=.19;jar.add(fill);ingredientJars.push(jar)}
+const pitcherHome=pitcher.position.clone();
 const waterDrops=[];
 const dropMat=new THREE.MeshPhysicalMaterial({color:0x8be8ff,transparent:true,opacity:.9,roughness:.08,clearcoat:1});
 for(let i=0;i<9;i++){const d=new THREE.Mesh(new THREE.SphereGeometry(.065,14,10),dropMat);d.visible=false;scene.add(d);waterDrops.push(d)}
@@ -241,7 +253,7 @@ function event(e){
  }
 }
 const giftPicker=$("#giftPicker");document.querySelectorAll("[data-gift]").forEach(b=>b.onclick=()=>{gift(b.dataset.gift,"Demo izleyici");if(giftPicker)giftPicker.hidden=true});$("#giftDemo").onclick=()=>{if(giftPicker)giftPicker.hidden=!giftPicker.hidden};
-$("#knead").onclick=()=>act("knead","Slime'ı güzelce yoğuruyorum!");$("#water").onclick=()=>{water=Math.min(100,water+10);updateStats();act("water","Biraz su ekliyorum!")};$("#add").onclick=()=>{addGrowth(12);act("add","Yeni slime ekledim!")};
+$("#knead").onclick=()=>act("knead","Slime'ı güzelce yoğuruyorum!");$("#water").onclick=()=>{water=Math.min(100,water+10);updateStats();act("water","Sürahiden slime kasesine su ekliyorum!")};$("#add").onclick=()=>{addGrowth(12);act("add","Yeni slime ekledim!")};
 $("#demo").onclick=()=>{socket??=window.io?.();socket?.emit("join-stream",{username:"demo",mode:"demo"});$("#status").textContent="● Demo modu";log("Demo modu açıldı")};
 $("#connect").onclick=()=>{const username=$("#username").value.trim().replace(/^@/,"");if(!username){say("Önce TikTok kullanıcı adını yaz!");return}socket??=window.io?.();if(!socket){say("Canlı bağlantı sunucusu bulunamadı.");return}socket.emit("join-stream",{username,mode:"live"});$("#status").textContent="● Bağlanıyor: @"+username;log("@"+username+" canlı yayınına bağlanılıyor")};
 $("#stop").onclick=()=>{socket?.emit("leave-stream");$("#status").textContent="● Bağlantı kesildi";log("Yayın bağlantısı kesildi")};
@@ -295,9 +307,10 @@ function animate(){
  }
  p.needsUpdate=true;slimeGeo.computeVertexNormals();
  if(watering){
+  const pourProgress=Math.min(1,Math.max(0,phase/.7));pitcher.position.lerpVectors(pitcherHome,new THREE.Vector3(-.95,.92,1.72),pourProgress);pitcher.rotation.z=-.9*pourProgress;pitcher.visible=phase<3.0;
   slime.scale.y=.36+water*.002+Math.sin(t*13)*.035;
   waterDrops.forEach((d,i)=>{d.visible=phase<2.7;const fall=(phase*1.9+i*.12)%1.05;const spout=aBottleRef?.spout;if(spout){aBottleRef.bottle.updateWorldMatrix(true,false);const origin=spout.getWorldPosition(new THREE.Vector3());d.position.set(origin.x+Math.sin(i*2.2)*.10,origin.y-fall*.85,origin.z+.05+Math.cos(i*1.7)*.08)}else d.position.set(.1,1.8-fall,.9);d.scale.setScalar(.65+Math.sin(t*12+i)*.12)});
- }else{waterDrops.forEach(d=>d.visible=false)}
+ }else{waterDrops.forEach(d=>d.visible=false);pitcher.position.lerp(pitcherHome,.16);pitcher.rotation.z*=.82;pitcher.visible=true}
  if(celebrating||burstActive){
   confetti.forEach((p,i)=>{p.visible=phase<3.4;const a=i*2.399;const fall=(phase*1.4+(i%9)*.12);p.position.set(.42+Math.cos(a)*(1.1+fall*.28),2.7+Math.sin(a)*(1.0+fall*.2)-fall*.65,1.2+Math.sin(a*1.7)*.75);p.rotation.set(t*3+i,t*4+i,t*5+i)});
  }else{confetti.forEach(p=>p.visible=false)}
