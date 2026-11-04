@@ -114,6 +114,9 @@ for(let i=0;i<9;i++){const d=new THREE.Mesh(new THREE.SphereGeometry(.065,14,10)
 const confetti=[];
 const confettiMats=[0xffd166,0xff6fae,0x6ce5c0,0x7db8ff,0xc69cff].map(color=>new THREE.MeshStandardMaterial({color,roughness:.4,emissive:color,emissiveIntensity:.18}));
 for(let i=0;i<42;i++){const p=new THREE.Mesh(new THREE.BoxGeometry(.075,.12,.035),confettiMats[i%confettiMats.length]);p.visible=false;scene.add(p);confetti.push(p)}
+const slimeBurst=[];
+for(let i=0;i<34;i++){const p=new THREE.Mesh(new THREE.SphereGeometry(.075,12,10),new THREE.MeshPhysicalMaterial({color:[0xff55ba,0xf58ad0,0xffb3df][i%3],roughness:.15,clearcoat:1}));p.visible=false;scene.add(p);slimeBurst.push(p)}
+
 
 const bug=new THREE.Group();scene.add(bug);
 const orange=new THREE.MeshPhysicalMaterial({color:0xff681d,roughness:.2,clearcoat:1,clearcoatRoughness:.08});
@@ -182,6 +185,15 @@ for(const s of [-1,1]){
   tube(fore,[[x,-.40,.22],[x+s*.012,-.49,.27],[x+s*.025,-.53,.25]],.038,orangeDark);
  }
  arms.push({arm,side:s,fore});
+ if(s===-1){
+  const bottle=new THREE.Group();fore.add(bottle);bottle.position.set(0,-.28,.28);bottle.visible=false;
+  const glassBottle=new THREE.Mesh(new THREE.CylinderGeometry(.105,.12,.34,24),new THREE.MeshPhysicalMaterial({color:0x73d9ff,transparent:true,opacity:.78,roughness:.12,metalness:.04,transmission:.35,clearcoat:1}));bottle.add(glassBottle);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.052,.07,.13,20),new THREE.MeshPhysicalMaterial({color:0x9beaff,transparent:true,opacity:.8,roughness:.12,clearcoat:1}));neck.position.y=.22;bottle.add(neck);
+  const mouth=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.035,20),new THREE.MeshStandardMaterial({color:0xb9edff,roughness:.2}));mouth.position.y=.30;bottle.add(mouth);
+  const label=new THREE.Mesh(new THREE.CylinderGeometry(.122,.122,.10,24,1,true),new THREE.MeshStandardMaterial({color:0x2aa8d7,roughness:.35}));label.position.y=-.025;bottle.add(label);
+  const cap=new THREE.Mesh(new THREE.CylinderGeometry(.052,.052,.06,20),new THREE.MeshStandardMaterial({color:0xffd66e,roughness:.35}));cap.position.y=.35;bottle.add(cap);
+  aBottleRef={bottle,spout:mouth,cap};
+ }
 }
 // Seated legs: thighs extend forward, lower legs drop behind the tabletop.
 const legs=[];
@@ -196,8 +208,15 @@ for(const s of [-1,1]){
 // Subtle neck transition and rear shell give the mascot a complete silhouette.
 sculpt(bug,orangeDark,[0,1.62,-.30],[.42,.48,.20]);
 bug.position.set(.42,.02,-.82);bug.scale.set(.88,.88,.88);
-let growth=38,water=5,action="idle",actionEnd=0,actionStarted=0,clock=new THREE.Clock(),socket=null;
+let growth=38,water=5,action="idle",actionEnd=0,actionStarted=0,clock=new THREE.Clock(),socket=null,aBottleRef=null,burstStarted=0,burstActive=false;
 function updateStats(){ $("#growth").style.width=growth+"%";$("#growthText").textContent=growth+"%";$("#waterText").textContent="%"+water;$("#level").textContent=String(Math.max(1,Math.floor(growth/20)));slime.scale.x=1.7+growth*.006;slime.scale.z=1.5+growth*.006;slime.scale.y=.34+water*.0015;waterVisual.scale.x=.72+water*.0032;waterVisual.scale.z=.68+water*.0028;waterVisual.position.y=.24+water*.0038}
+function addGrowth(amount){
+ if(growth+amount>=100){
+  growth=0;burstActive=true;burstStarted=performance.now();action="celebrate";actionStarted=burstStarted;actionEnd=burstStarted+2600;slime.visible=false;
+  log("💥 Slime %100'e ulaştı ve patladı! Yeni slime başladı.");say("Slime doldu! Patlıyor ve sıfırdan yeniden başlıyoruz!");
+ }else growth+=amount;
+ updateStats();
+}
 function log(msg){const comments=$("#liveComments");if(comments){const row=document.createElement("div");row.textContent=msg;comments.prepend(row);while(comments.children.length>5)comments.lastChild.remove()}const item=document.createElement("div");item.className="feed-item";item.textContent=msg;$("#feed").prepend(item);while($("#feed").children.length>20)$("#feed").lastChild.remove();const stageItem=item.cloneNode(true);$("#stageFeed").prepend(stageItem);while($("#stageFeed").children.length>3)$("#stageFeed").lastChild.remove()}
 const voiceQueue=[];let speaking=false,lastSpokenAt=0;
 function say(msg,priority="normal"){
@@ -221,7 +240,7 @@ if("speechSynthesis"in window){
  document.addEventListener("pointerdown",()=>{speechSynthesis.resume();if(!speaking)pumpVoiceQueue()},{once:true,passive:true});
 }
 function act(name,msg,duration=3200){action=name;actionStarted=performance.now();actionEnd=actionStarted+duration;if(msg)say(msg)}
-function gift(name,user="Bir izleyici"){const banner=$("#bigGift");if(banner){banner.innerHTML="🎁<b>En Büyük Hediye</b><span>"+user+" • "+name+"</span>"}const n=(name||"").toLowerCase();let actionName="knead",msg=user+" hediyen için teşekkürler!";if(n.includes("heart me")||n.includes("heart")){actionName="dance";msg="Kalp geldi! Hadi dans!";}else if(n.includes("finger")||n.includes("hand")){actionName="halay";msg="Halay başlasın!";}else if(n.includes("rose")||n.includes("gül")){water=Math.min(100,water+8);actionName="water";msg=user+" slime'a su ekliyor!";}else if(n.includes("tiktok")||n.includes("music")){growth=Math.min(100,growth+12);actionName="add";msg="Yeni slime ekliyoruz!";}else if(n.includes("bear")||n.includes("mishka")||n.includes("galaxy")||n.includes("lion")){growth=Math.min(100,growth+25);actionName="celebrate";msg="Vay canına! Büyük hediye geldi!";}else{actionName="knead";growth=Math.min(100,growth+3);msg="Teşekkürler "+user+"! Slime yoğuruyorum."}updateStats();act(actionName,msg,3600);log("🎁 "+user+" • "+name)}
+function gift(name,user="Bir izleyici"){const banner=$("#bigGift");if(banner){banner.innerHTML="🎁<b>En Büyük Hediye</b><span>"+user+" • "+name+"</span>"}const n=(name||"").toLowerCase();let actionName="knead",msg=user+" hediyen için teşekkürler!";if(n.includes("heart me")||n.includes("heart")){actionName="dance";msg="Kalp geldi! Dans başlasın!";}else if(n.includes("finger")||n.includes("hand")){actionName="halay";msg="Halay başlasın!";}else if(n.includes("rose")||n.includes("gül")){water=Math.min(100,water+8);actionName="water";msg=user+" şişeden slime'a su döküyor!";}else if(n.includes("tiktok")||n.includes("music")){addGrowth(12);actionName="add";msg="Yeni slime ekliyoruz!";}else if(n.includes("bear")||n.includes("mishka")||n.includes("galaxy")||n.includes("lion")){addGrowth(25);actionName="celebrate";msg="Vay canına! Büyük hediye geldi!";}else{addGrowth(3);actionName="knead";msg="Teşekkürler "+user+"! Slime yoğuruyorum."}updateStats();act(actionName,msg,3600);log("🎁 "+user+" • "+name)}
 const seenEvents=new Set();
 function rememberEvent(e){const raw=String(e.action||e.label||"").toLowerCase();const category=e.type==="social"&&(/follow|takip/.test(raw)||e.follow)?"follow":e.type==="social"&&(/share|paylaş/.test(raw)||e.share)?"share":e.type;const key=[category,e.user?.uniqueId||e.user?.nickname,e.comment||"",e.giftName||"",Math.floor((e.ts||Date.now())/2200)].join("|");if(seenEvents.has(key))return false;seenEvents.add(key);if(seenEvents.size>250)seenEvents.clear();return true}
 function event(e){
@@ -260,7 +279,7 @@ function event(e){
  }
 }
 const giftPicker=$("#giftPicker");document.querySelectorAll("[data-gift]").forEach(b=>b.onclick=()=>{gift(b.dataset.gift,"Demo izleyici");if(giftPicker)giftPicker.hidden=true});$("#giftDemo").onclick=()=>{if(giftPicker)giftPicker.hidden=!giftPicker.hidden};
-$("#knead").onclick=()=>act("knead","Slime'ı güzelce yoğuruyorum!");$("#water").onclick=()=>{water=Math.min(100,water+10);updateStats();act("water","Biraz su ekliyorum!")};$("#add").onclick=()=>{growth=Math.min(100,growth+12);updateStats();act("add","Yeni slime ekledim!")};
+$("#knead").onclick=()=>act("knead","Slime'ı güzelce yoğuruyorum!");$("#water").onclick=()=>{water=Math.min(100,water+10);updateStats();act("water","Biraz su ekliyorum!")};$("#add").onclick=()=>{addGrowth(12);act("add","Yeni slime ekledim!")};
 $("#demo").onclick=()=>{socket??=window.io?.();socket?.emit("join-stream",{username:"demo",mode:"demo"});$("#status").textContent="● Demo modu";log("Demo modu açıldı")};
 $("#connect").onclick=()=>{const username=$("#username").value.trim().replace(/^@/,"");if(!username){say("Önce TikTok kullanıcı adını yaz!");return}socket??=window.io?.();if(!socket){say("Canlı bağlantı sunucusu bulunamadı.");return}socket.emit("join-stream",{username,mode:"live"});$("#status").textContent="● Bağlanıyor: @"+username;log("@"+username+" canlı yayınına bağlanılıyor")};
 $("#stop").onclick=()=>{socket?.emit("leave-stream");$("#status").textContent="● Bağlantı kesildi";log("Yayın bağlantısı kesildi")};
@@ -282,8 +301,8 @@ function animate(){
  head.rotation.x=kneading?Math.sin(t*7)*.10:watering?-.13:action==="wave"?-.04:Math.sin(t*1.3)*.012;
  arms.forEach((a,i)=>{
   const s=a.side;
-  if(halaying){a.arm.rotation.z=s*(1.02+Math.sin(t*10)*.20);a.arm.rotation.x=-.18+Math.sin(t*10+i)*.12}
-  else if(dancing){a.arm.rotation.z=s*(.95+Math.sin(t*9+i)*.38);a.arm.rotation.x=Math.sin(t*9+i)*.22}
+  if(halaying){a.arm.rotation.z=s*(1.28+Math.sin(t*6)*.12);a.arm.rotation.x=-.32+Math.sin(t*6)*.08}
+  else if(dancing){a.arm.rotation.z=i===0?-.18+Math.sin(t*11)*.20:1.45+Math.sin(t*11)*.48;a.arm.rotation.x=Math.sin(t*11+i)*.38}
   else if(action==="wave"&&i===1){a.arm.rotation.z=1.05+Math.sin(t*11)*.42;a.arm.rotation.x=-.12}
   else if(kneading){a.arm.rotation.z=s*(.12+Math.sin(t*9+i)*.10);a.arm.rotation.x=-.38+Math.sin(t*12+i)*.18}
   else if(watering){a.arm.rotation.z=i===0?-.82:.20;a.arm.rotation.x=-.30+Math.sin(t*8)*.08}
@@ -291,12 +310,12 @@ function animate(){
   else if(celebrating){a.arm.rotation.z=s*(1.15+Math.sin(t*13+i)*.25);a.arm.rotation.x=-.25}
   else {a.arm.rotation.z=Math.sin(t*1.5+i)*.04;a.arm.rotation.x=0}
   if(kneading){const press=Math.max(0,Math.sin(t*8+i*Math.PI));a.fore.position.y=-.55-.16*press;a.fore.position.z=1.08+.10*Math.sin(t*8+i*Math.PI);a.fore.rotation.x=-.82+.22*Math.sin(t*8+i*Math.PI)}
-  else if(watering){a.fore.position.y=-.55+(i===0?.24:0);a.fore.position.z=i===0?1.02:.55;a.fore.rotation.x=i===0?-.72:-.18}
+  else if(watering){a.fore.position.y=-.55+(i===0?.22:0);a.fore.position.z=i===0?1.0:.55;a.fore.rotation.x=i===0?-.62:-.18;if(i===0&&aBottleRef){aBottleRef.bottle.visible=true;aBottleRef.bottle.rotation.z=-.82;aBottleRef.cap.visible=false}}else if(i===0&&aBottleRef){aBottleRef.bottle.visible=false;aBottleRef.cap.visible=true}
   else {a.fore.position.y=-.55;a.fore.position.z=.47;a.fore.rotation.x=0}
  });
  legs.forEach((l,i)=>{
-  l.rotation.z=dancing?Math.sin(t*9+i*Math.PI)*.48:halaying?Math.sin(t*10+i*Math.PI)*.40:celebrating?Math.sin(t*13+i)*.24:0;
-  l.rotation.x=dancing?Math.sin(t*9+i)*.22:halaying?Math.cos(t*10+i)*.16:0;
+  l.rotation.z=dancing?Math.sin(t*11+i*Math.PI)*.68:halaying?Math.sin(t*6+i*Math.PI)*.52:celebrating?Math.sin(t*13+i)*.24:0;
+  l.rotation.x=dancing?Math.max(0,Math.sin(t*11+i*Math.PI))*.58:halaying?Math.cos(t*6+i*Math.PI)*.28:0;
  });
  const p=slimeGeo.attributes.position;
  for(let i=0;i<p.count;i++){
@@ -315,11 +334,18 @@ function animate(){
  p.needsUpdate=true;slimeGeo.computeVertexNormals();
  if(watering){
   slime.scale.y=.36+water*.002+Math.sin(t*13)*.035;
-  waterDrops.forEach((d,i)=>{d.visible=phase<2.7;const fall=(phase*1.7+i*.19)%1.35;d.position.set(.42+Math.sin(i*2.2)*.36,2.25-fall*1.35,1.7+Math.cos(i*1.7)*.28);d.scale.setScalar(.75+Math.sin(t*12+i)*.12)});
+  waterDrops.forEach((d,i)=>{d.visible=phase<2.7;const fall=(phase*1.9+i*.12)%1.05;const spout=aBottleRef?.spout;if(spout){aBottleRef.bottle.updateWorldMatrix(true,false);const origin=spout.getWorldPosition(new THREE.Vector3());d.position.set(origin.x+Math.sin(i*2.2)*.10,origin.y-fall*.85,origin.z+.05+Math.cos(i*1.7)*.08)}else d.position.set(.1,1.8-fall,.9);d.scale.setScalar(.65+Math.sin(t*12+i)*.12)});
  }else{waterDrops.forEach(d=>d.visible=false)}
  if(celebrating){
   confetti.forEach((p,i)=>{p.visible=phase<3.4;const a=i*2.399;const fall=(phase*1.4+(i%9)*.12);p.position.set(.42+Math.cos(a)*(1.1+fall*.28),2.7+Math.sin(a)*(1.0+fall*.2)-fall*.65,1.2+Math.sin(a*1.7)*.75);p.rotation.set(t*3+i,t*4+i,t*5+i)});
  }else{confetti.forEach(p=>p.visible=false)}
+ if(burstActive){
+  const elapsed=(now-burstStarted)/1000,pop=Math.min(1,Math.max(0,(elapsed-.55)/.75));
+  const targetX=1.7+growth*.006,targetZ=1.5+growth*.006;
+  slime.visible=elapsed>.55;slime.scale.set(targetX*pop,.34*pop,targetZ*pop);
+  slimeBurst.forEach((p,i)=>{p.visible=elapsed<1.25;const angle=i*2.399,travel=Math.min(1.4,elapsed*2.2);p.position.set(.42+Math.cos(angle)*travel,.55+Math.sin(angle*1.7)*travel+Math.max(0,elapsed)*.25,1.85+Math.sin(angle)*travel);p.scale.setScalar(Math.max(.01,1-elapsed/1.3)*(.7+(i%4)*.15))});
+  if(elapsed>=1.3){burstActive=false;slime.visible=true;slime.scale.set(targetX,.34+water*.0015,targetZ);slimeBurst.forEach(p=>p.visible=false)}
+ }else{slimeBurst.forEach(p=>p.visible=false)}
  if(action==="add"){slime.scale.x=(1.7+growth*.006)+Math.sin(t*7)*.10;slime.scale.z=(1.5+growth*.006)+Math.sin(t*7)*.10}
  else if(kneading){slime.scale.y=.36+water*.002+Math.sin(t*12)*.055}
  else if(!watering){slime.scale.y=.34+water*.0015}
