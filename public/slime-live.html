@@ -214,7 +214,7 @@ if("speechSynthesis"in window){
 function act(name,msg,duration=2600){action=name;actionEnd=performance.now()+duration;if(msg)say(msg)}
 function gift(name,user="Bir izleyici"){const banner=$("#bigGift");if(banner){banner.innerHTML="🎁<b>En Büyük Hediye</b><span>"+user+" • "+name+"</span>"}const n=(name||"").toLowerCase();let actionName="knead",msg=user+" hediyen için teşekkürler!";if(n.includes("heart me")||n.includes("heart")){actionName="dance";msg="Kalp geldi! Hadi dans!";}else if(n.includes("finger")||n.includes("hand")){actionName="halay";msg="Halay başlasın!";}else if(n.includes("rose")||n.includes("gül")){water=Math.min(100,water+8);actionName="water";msg=user+" slime'a su ekliyor!";}else if(n.includes("tiktok")||n.includes("music")){growth=Math.min(100,growth+12);actionName="add";msg="Yeni slime ekliyoruz!";}else if(n.includes("bear")||n.includes("mishka")||n.includes("galaxy")||n.includes("lion")){growth=Math.min(100,growth+25);actionName="celebrate";msg="Vay canına! Büyük hediye geldi!";}else{actionName="knead";growth=Math.min(100,growth+3);msg="Teşekkürler "+user+"! Slime yoğuruyorum."}updateStats();act(actionName,msg,3600);log("🎁 "+user+" • "+name)}
 const seenEvents=new Set();
-function rememberEvent(e){const key=[e.type,e.user?.uniqueId||e.user?.nickname,e.comment||"",e.giftName||"",e.action||"",Math.floor((e.ts||Date.now())/1800)].join("|");if(seenEvents.has(key))return false;seenEvents.add(key);if(seenEvents.size>250)seenEvents.clear();return true}
+function rememberEvent(e){const raw=String(e.action||e.label||"").toLowerCase();const category=e.type==="social"&&(/follow|takip/.test(raw)||e.follow)?"follow":e.type==="social"&&(/share|paylaş/.test(raw)||e.share)?"share":e.type;const key=[category,e.user?.uniqueId||e.user?.nickname,e.comment||"",e.giftName||"",Math.floor((e.ts||Date.now())/2200)].join("|");if(seenEvents.has(key))return false;seenEvents.add(key);if(seenEvents.size>250)seenEvents.clear();return true}
 function event(e){
  if(!e||!rememberEvent(e))return;
  const user=e.user?.nickname||e.user?.uniqueId||"İzleyici";
@@ -223,10 +223,10 @@ function event(e){
   const comment=String(e.comment||"").trim();if(!comment)return;
   log("💬 "+user+": "+comment);
   const lower=comment.toLocaleLowerCase("tr-TR");
-  if(/merhaba|selam|hello|hoş geldin/.test(lower)){act("wave","Merhaba "+user+"! Yayınımıza hoş geldin.",2200)}
-  else if(/dans|oyna|halay/.test(lower)){act("dance",user+" dans istiyor! Hemen oynuyorum.",2400)}
-  else if(/slime|yoğur|yogur/.test(lower)){act("knead",user+" için slime yoğuruyorum.",2400)}
-  say(user+" şöyle yazdı: "+comment);
+  if(/merhaba|selam|hello|hoş geldin/.test(lower)){act("wave","",2200)}
+  else if(/dans|oyna|halay/.test(lower)){act("dance","",2400)}
+  else if(/slime|yoğur|yogur/.test(lower)){act("knead","",2400)}
+  say(user+" şöyle yazdı: "+comment.slice(0,180));
   return;
  }
  if(e.type==="social"||e.type==="member"||e.type==="follow"){
@@ -235,11 +235,11 @@ function event(e){
   const isShare=e.share===true||e.isShare===true||/share|paylaş/.test(raw);
   if(isFollow){
    log("⭐ "+user+" takip etti");
-   act("wave",user+" ailemize katıldı, hoş geldin!",2600);
+   act("wave","",2600);
    say(user+" bizi takip etti. Hoş geldin!", "urgent");
   }else if(isShare){
    log("↗ "+user+" yayını paylaştı");
-   act("celebrate",user+" yayını paylaştı, çok teşekkürler!",2400);
+   act("celebrate","",2400);
    say(user+" yayını paylaştı. Çok teşekkür ederiz!");
   }else if(e.type==="member"){
    log("👋 "+user+" yayına katıldı");
