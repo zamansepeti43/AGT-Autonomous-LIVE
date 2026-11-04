@@ -26,6 +26,7 @@
 </aside></div></main>
 <script src="/socket.io/socket.io.js"></script><script type="module">
 import * as THREE from "three";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js";
 const $=s=>document.querySelector(s),canvas=$("#scene"),stage=canvas.parentElement;
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(stage.clientWidth,stage.clientHeight);renderer.shadowMap.enabled=true;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x33251d);scene.fog=new THREE.Fog(0x33251d,13,24);
@@ -63,11 +64,45 @@ for(const s of [-1,1]){ball(head,white,[s*.29,.15,.49],[.25,.28,.14]);ball(head,
 const arms=[];for(const s of [-1,1]){const arm=new THREE.Group();arm.position.set(s*.58,2.1,.05);bug.add(arm);const upper=new THREE.Mesh(new THREE.CapsuleGeometry(.16,.58,5,12),orange);upper.rotation.z=s*.85;upper.position.set(s*.25,-.24,.18);arm.add(upper);const fore=new THREE.Mesh(new THREE.CapsuleGeometry(.14,.46,5,12),orange);fore.rotation.z=-s*.5;fore.position.set(s*.43,-.48,.42);arm.add(fore);const hand=ball(arm,orange,[s*.50,-.68,.57],[.25,.19,.16]);for(let f=0;f<3;f++){const finger=new THREE.Mesh(new THREE.CapsuleGeometry(.045,.16,3,8),orange);finger.rotation.z=(f-1)*.32;finger.position.set(s*.5+(f-1)*.11,-.82,.69);arm.add(finger)}arms.push({arm,side:s})}
 const legs=[];for(const s of [-1,1]){const leg=new THREE.Group();leg.position.set(s*.35,.95,.08);bug.add(leg);const sh=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.52,4,10),orange);sh.rotation.z=-s*.15;sh.position.y=-.35;leg.add(sh);ball(leg,orange,[0,-.7,.2],[.2,.16,.24]);legs.push(leg)}
 bug.position.set(0,-.02,-1.0);bug.scale.set(1.12,1.12,1.12);
+// Optional reference-based character asset. The primitive prototype stays hidden only
+// after a valid, rigged GLB has loaded successfully.
+let importedBug=null, importedMixer=null, importedClips={};
+const gltfLoader=new GLTFLoader();
+gltfLoader.load("/assets/agt-bug.glb",gltf=>{
+  importedBug=gltf.scene;
+  importedBug.name="AGT_Reference_Bug";
+  importedBug.position.set(0,-.02,-1.0);
+  importedBug.scale.setScalar(1);
+  importedBug.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  scene.add(importedBug);
+  if(gltf.animations?.length){
+    importedMixer=new THREE.AnimationMixer(importedBug);
+    for(const clip of gltf.animations){
+      const n=clip.name.toLowerCase();
+      const key=n.includes("halay")||n.includes("dance")?"halay":
+        n.includes("knead")||n.includes("slime")||n.includes("mix")?"knead":
+        n.includes("wave")||n.includes("hello")?"wave":
+        n.includes("celebr")||n.includes("jump")?"celebrate":
+        n.includes("idle")?"idle":n;
+      importedClips[key]=importedMixer.clipAction(clip);
+    }
+  }
+  bug.visible=false;
+  log("Referans karakter modeli yüklendi.");
+},undefined,err=>{console.info("AGT reference GLB not installed yet; prototype remains visible.",err);});
+function playImportedAction(name){
+  if(!importedMixer)return;
+  const key=name==="dance"?"halay":name;
+  const next=importedClips[key]||importedClips.idle;
+  if(!next)return;
+  Object.values(importedClips).forEach(a=>{if(a!==next)a.fadeOut(.12)});
+  next.reset().fadeIn(.12).play();
+}
 let growth=38,water=5,action="idle",actionEnd=0,clock=new THREE.Clock(),socket=null;
 function updateStats(){ $("#growth").style.width=growth+"%";$("#growthText").textContent=growth+"%";$("#waterText").textContent="%"+water;$("#level").textContent=String(Math.max(1,Math.floor(growth/20)));slime.scale.x=1.7+growth*.006;slime.scale.z=1.5+growth*.006;slime.scale.y=.34+water*.0015}
 function log(msg){const comments=$("#liveComments");if(comments){const row=document.createElement("div");row.textContent=msg;comments.prepend(row);while(comments.children.length>5)comments.lastChild.remove()}const item=document.createElement("div");item.className="feed-item";item.textContent=msg;$("#feed").prepend(item);while($("#feed").children.length>20)$("#feed").lastChild.remove();const stageItem=item.cloneNode(true);$("#stageFeed").prepend(stageItem);while($("#stageFeed").children.length>3)$("#stageFeed").lastChild.remove()}
 function say(msg){const b=$("#speech");b.textContent=msg;b.classList.add("show");clearTimeout(window.sayTimer);window.sayTimer=setTimeout(()=>b.classList.remove("show"),3300);if("speechSynthesis"in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(msg);u.lang="tr-TR";u.rate=.96;u.pitch=1.15;speechSynthesis.speak(u)}}
-function act(name,msg,duration=2600){action=name;actionEnd=performance.now()+duration;if(msg)say(msg)}
+function act(name,msg,duration=2600){action=name;actionEnd=performance.now()+duration;playImportedAction(name);if(msg)say(msg)}
 function gift(name,user="Bir izleyici"){const banner=$("#bigGift");if(banner){banner.innerHTML="🎁<b>En Büyük Hediye</b><span>"+user+" • "+name+"</span>"}const n=(name||"").toLowerCase();let actionName="knead",msg=user+" hediyen için teşekkürler!";if(n.includes("heart me")||n.includes("heart")){actionName="dance";msg="Kalp geldi! Hadi dans!";}else if(n.includes("finger")||n.includes("hand")){actionName="halay";msg="Halay başlasın!";}else if(n.includes("rose")||n.includes("gül")){water=Math.min(100,water+8);actionName="water";msg=user+" slime'a su ekliyor!";}else if(n.includes("tiktok")||n.includes("music")){growth=Math.min(100,growth+12);actionName="add";msg="Yeni slime ekliyoruz!";}else if(n.includes("bear")||n.includes("mishka")||n.includes("galaxy")||n.includes("lion")){growth=Math.min(100,growth+25);actionName="celebrate";msg="Vay canına! Büyük hediye geldi!";}else{actionName="knead";growth=Math.min(100,growth+3);msg="Teşekkürler "+user+"! Slime yoğuruyorum."}updateStats();act(actionName,msg,3600);log("🎁 "+user+" • "+name)}
 function event(e){if(!e)return;const user=e.user?.nickname||e.user?.uniqueId||"İzleyici";if(e.type==="gift"){gift(e.giftName||"Hediye",user);return}if(e.type==="chat"){const comment=e.comment||"";log("💬 "+user+": "+comment);say(user+" diyor ki: "+comment);return}if(e.type==="social"||e.type==="member"){const actionText=(e.action||"").toLowerCase();if(actionText.includes("follow")||actionText.includes("share")||e.type==="member"){log("⭐ "+user+" yayına katıldı / takip etti");act("wave","Hoş geldin "+user+"!",1800)}}}
 document.querySelectorAll("[data-gift]").forEach(b=>b.onclick=()=>gift(b.dataset.gift,"Demo izleyici"));
@@ -79,7 +114,7 @@ document.querySelector("#chatDemo").onclick=()=>say("Yorumlar canlı yayından o
 document.querySelector("#demoToggle").onchange=e=>{if(e.target.checked){socket??=window.io?.();socket?.emit("join-stream",{username:"demo",mode:"demo"});$("#status").textContent="● DEMO"}else{socket?.emit("leave-stream");$("#status").textContent="● Bağlantı kesildi"}};
 socket=window.io?.();if(socket){socket.on("live:event",event);socket.on("stream-status",s=>{$("#status").textContent=s.mode==="demo"?"● Demo modu":s.connected?"● LIVE bağlı: @"+s.username:"● Bağlantı bekleniyor"});socket.on("stream-error",e=>{say("Bağlantı hatası: "+e.message);$("#status").textContent="● Bağlantı hatası"});socket.on("live:connected",()=>log("TikTok LIVE bağlantısı kuruldu"))}
 function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(stage);window.addEventListener("orientationchange",()=>setTimeout(resize,250));
-function animate(){requestAnimationFrame(animate);const t=clock.getElapsedTime(),now=performance.now();if(now>actionEnd&&action!=="idle")action="idle";bug.position.y=-.02+Math.sin(t*2)*.018;bug.rotation.y=Math.sin(t*.5)*.035;head.rotation.z=Math.sin(t*1.7)*.035;arms.forEach((a,i)=>{a.arm.rotation.z=action==="halay"?a.side*(.7+Math.sin(t*10)*.35):action==="dance"?a.side*(.4+Math.sin(t*8+i)*.25):action==="wave"&&i===1?Math.sin(t*10)*.8:action==="knead"?(i===0?-.55:.55)+Math.sin(t*11+i)*.24:action==="water"?(i===0?-.9:.35)+Math.sin(t*7)*.08:action==="add"?(i===0?-.45:.45)+Math.sin(t*8+i)*.1:Math.sin(t*1.5+i)*.04});legs.forEach((l,i)=>{l.rotation.z=action==="halay"?Math.sin(t*10+i)*.35:action==="dance"?Math.sin(t*8+i)*.3:0});
+function animate(){requestAnimationFrame(animate);const dt=clock.getDelta(),t=clock.elapsedTime,now=performance.now();if(importedMixer)importedMixer.update(dt);if(now>actionEnd&&action!=="idle"){action="idle";playImportedAction("idle")}bug.position.y=-.02+Math.sin(t*2)*.018;bug.rotation.y=Math.sin(t*.5)*.035;head.rotation.z=Math.sin(t*1.7)*.035;arms.forEach((a,i)=>{a.arm.rotation.z=action==="halay"?a.side*(.7+Math.sin(t*10)*.35):action==="dance"?a.side*(.4+Math.sin(t*8+i)*.25):action==="wave"&&i===1?Math.sin(t*10)*.8:action==="knead"?(i===0?-.55:.55)+Math.sin(t*11+i)*.24:action==="water"?(i===0?-.9:.35)+Math.sin(t*7)*.08:action==="add"?(i===0?-.45:.45)+Math.sin(t*8+i)*.1:Math.sin(t*1.5+i)*.04});legs.forEach((l,i)=>{l.rotation.z=action==="halay"?Math.sin(t*10+i)*.35:action==="dance"?Math.sin(t*8+i)*.3:0});
 const p=slimeGeo.attributes.position;for(let i=0;i<p.count;i++){const x=slimeBase[i*3],y=slimeBase[i*3+1],z=slimeBase[i*3+2];const wave=Math.sin(t*3+x*2+z*2)*.018;const extra=action==="knead"||action==="water"||action==="add"?Math.sin(t*8+x*3)*.045:0;p.setY(i,y+wave+extra)}p.needsUpdate=true;slimeGeo.computeVertexNormals();
 if(action==="water"){slime.scale.y=.34+water*.0015+Math.sin(t*12)*.025}else if(action==="add"){slime.scale.x=(1.7+growth*.006)+Math.sin(t*7)*.08;slime.scale.z=(1.5+growth*.006)+Math.sin(t*7)*.08}else if(action==="knead"){slime.scale.y=.34+water*.0015+Math.sin(t*10)*.025}
 if(action==="knead"||action==="add"){arms.forEach((a,i)=>{a.arm.rotation.x=Math.sin(t*10+i)*.22})}else{arms.forEach(a=>a.arm.rotation.x=0)}
